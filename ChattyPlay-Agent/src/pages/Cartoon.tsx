@@ -1,0 +1,470 @@
+import React, { useState, useEffect } from 'react'
+import {
+  Typography,
+  Row,
+  Col,
+  Card,
+  Tabs,
+  Spin,
+  message,
+  Image,
+  Tag,
+  Input,
+  Space
+} from 'antd'
+import {
+  SearchOutlined,
+  StarOutlined,
+  EyeOutlined
+} from '@ant-design/icons'
+import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import styled from 'styled-components'
+
+const { Title, Text, Paragraph } = Typography
+const { Search } = Input
+
+const CartoonContainer = styled.div`
+  width: 100%;
+  min-height: calc(100vh - 64px);
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  padding: 80px 24px 24px;
+
+  @media (max-width: 768px) {
+    padding: 70px 16px 16px;
+  }
+`
+
+const ContentWrapper = styled.div`
+  max-width: 1400px;
+  margin: 0 auto;
+`
+
+const StyledCard = styled(Card)`
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  height: 100%;
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(102, 126, 234, 0.2);
+  }
+
+  .ant-card-cover {
+    overflow: hidden;
+  }
+
+  .ant-card-cover img {
+    transition: transform 0.3s ease;
+  }
+
+  &:hover .ant-card-cover img {
+    transform: scale(1.05);
+  }
+
+  .ant-card-body {
+    padding: 16px;
+  }
+`
+
+const CartoonImage = styled(Image)`
+  width: 100%;
+  height: 280px;
+  object-fit: cover;
+
+  @media (max-width: 768px) {
+    height: 200px;
+  }
+`
+
+const DescriptionText = styled.div`
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.45);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.5;
+  max-height: 36px;
+  word-break: break-word;
+`
+
+const HeaderSection = styled.div`
+  margin-bottom: 32px;
+  text-align: center;
+
+  h1 {
+    font-size: 2.5rem;
+    font-weight: bold;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 8px;
+  }
+
+  p {
+    font-size: 1rem;
+    color: #666;
+  }
+`
+
+const StyledTabs = styled(Tabs)`
+  .ant-tabs-nav {
+    margin-bottom: 24px;
+  }
+
+  .ant-tabs-tab {
+    font-size: 16px;
+    font-weight: 500;
+  }
+`
+
+interface RankType {
+  rank_id: number;
+  title: string;
+  description: string;
+}
+
+interface Topic {
+  id: number;
+  title: string;
+  description: string;
+  cover?: string;
+  views_count: number;
+  likes_count: number;
+  is_finish: number;
+}
+
+interface CartoonData {
+  id: number;
+  title: string;
+  description: string;
+  cover?: string;
+  views_count?: number;
+  likes_count?: number;
+  is_finish?: number;
+}
+
+const Cartoon: React.FC = () => {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  const [loading, setLoading] = useState(false)
+  const [rankTypes, setRankTypes] = useState<RankType[]>([])
+  const [cartoonList, setCartoonList] = useState<CartoonData[]>([])
+  const [selectedRankId, setSelectedRankId] = useState<number | null>(null)
+  const [searchKeyword, setSearchKeyword] = useState('')
+  const [isSearching, setIsSearching] = useState(false)
+  const [searchResults, setSearchResults] = useState<CartoonData[]>([])
+
+  // 获取排行榜类型列表
+  useEffect(() => {
+    fetchRankTypes()
+  }, [])
+
+  // 获取排行榜类型列表
+  const fetchRankTypes = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch((`/api/kuaikan/v2/pweb/rank_type_list`))
+      const data = await response.json()
+
+      if (data.data && data.data.rank_types) {
+        setRankTypes(data.data.rank_types)
+        // 默认选择第一个排行榜
+        if (data.data.rank_types.length > 0) {
+          const firstRankId = data.data.rank_types[0].rank_id
+          setSelectedRankId(firstRankId)
+          fetchCartoonList(firstRankId)
+        }
+      }
+    } catch (error) {
+      console.error('获取排行榜类型失败:', error)
+      message.error(t('cartoon.fetchRankTypesFailed'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // 获取漫画列表
+  const fetchCartoonList = async (rankId: number) => {
+    try {
+      setLoading(true)
+      const response = await fetch(
+        `/api/kuaikan/v2/pweb/rank/topics?rank_id=${rankId}`
+      )
+      const data = await response.json()
+
+      if (data.data && data.data.rank_info && data.data.rank_info.topics) {
+        const topics: Topic[] = data.data.rank_info.topics
+        const formattedData: CartoonData[] = topics.map(topic => ({
+          id: topic.id,
+          title: topic.title,
+          description: topic.description,
+          // @ts-ignore
+          cover: topic.cover_image_url,
+          views_count: topic.views_count,
+          likes_count: topic.likes_count,
+          is_finish: topic.is_finish
+        }))
+        setCartoonList(formattedData)
+      }
+    } catch (error) {
+      console.error('获取漫画列表失败:', error)
+      message.error(t('cartoon.fetchCartoonListFailed'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // 处理排行榜切换
+  const handleTabChange = (key: string) => {
+    const rankId = parseInt(key)
+    setSelectedRankId(rankId)
+    fetchCartoonList(rankId)
+  }
+
+  // 处理漫画卡片点击
+  const handleCardClick = (cartoon: CartoonData) => {
+    navigate(`/cartoon/${cartoon.id}`)
+  }
+
+  // 格式化数字显示
+  const formatNumber = (num: number = 0) => {
+    if (num >= 10000) {
+      return (num / 10000).toFixed(1) + '万'
+    }
+    return num.toString()
+  }
+
+  // 搜索漫画
+  const handleSearch = async (keyword: string) => {
+    if (!keyword.trim()) {
+      message.warning(t('cartoon.enterKeyword'))
+      return
+    }
+
+    try {
+      setLoading(true)
+      setIsSearching(true)
+      const response = await fetch((`/api/kuaikan/v1/search/topic?q=${encodeURIComponent(keyword)}&f=3&size=18`))
+      const data = await response.json()
+
+      if (data.data && data.data.hit) {
+        const hitList: Topic[] = data.data.hit
+        const formattedData: CartoonData[] = hitList.map(topic => ({
+          id: topic.id,
+          title: topic.title,
+          description: topic.description,
+          // @ts-ignore
+          cover: topic.cover_image_url,
+          views_count: topic.views_count,
+          likes_count: topic.likes_count,
+          is_finish: topic.is_finish
+        }))
+        setSearchResults(formattedData)
+        message.success(t('cartoon.foundResults').replace('X', formattedData.length.toString()))
+      } else {
+        setSearchResults([])
+        message.info(t('cartoon.noResults'))
+      }
+    } catch (error) {
+      console.error('搜索失败:', error)
+      message.error(t('cartoon.searchFailed'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // 清除搜索
+  const handleClearSearch = () => {
+    setIsSearching(false)
+    setSearchResults([])
+    setSearchKeyword('')
+  }
+
+  const tabItems = rankTypes.map(rankType => ({
+    key: rankType.rank_id.toString(),
+    label: rankType.title
+  }))
+
+  return (
+    <CartoonContainer>
+      <ContentWrapper>
+        <HeaderSection>
+          <Title>{t('cartoon.subTitle')}</Title>
+          <Paragraph>{t('cartoon.description')}</Paragraph>
+          <Search
+            placeholder={t('cartoon.searchPlaceholder')}
+            allowClear
+            enterButton={<SearchOutlined />}
+            size="large"
+            style={{ maxWidth: 500, marginTop: 16 }}
+            value={searchKeyword}
+            onChange={e => setSearchKeyword(e.target.value)}
+            onSearch={value => {
+              if (value) {
+                handleSearch(value)
+              } else {
+                handleClearSearch()
+              }
+            }}
+            onClear={handleClearSearch}
+          />
+        </HeaderSection>
+
+        <Spin spinning={loading} tip={t('common.loading')}>
+          {isSearching ? (
+            <>
+              {searchResults.length > 0 && (
+                <div style={{ marginBottom: 16 }}>
+                  <Space>
+                    <Text type="secondary">
+                      {t('cartoon.searchResults')} <Text strong>{searchResults.length}</Text> {t('cartoon.relatedCartoons')}
+                    </Text>
+                  </Space>
+                </div>
+              )}
+
+              <Row gutter={[24, 24]}>
+                {searchResults.map(cartoon => (
+                  <Col xs={12} sm={8} md={6} lg={4} xl={4} key={cartoon.id}>
+                    <StyledCard
+                      hoverable
+                      cover={
+                        <div
+                          style={{ overflow: 'hidden', position: 'relative' }}
+                          onClick={() => handleCardClick(cartoon)}
+                        >
+                          <CartoonImage
+                            src={cartoon.cover}
+                            alt={cartoon.title}
+                            preview={false}
+                          />
+                          {cartoon.is_finish === 1 && (
+                            <Tag color="success" style={{ position: 'absolute', top: 8, right: 8 }}>
+                              {t('cartoon.finished')}
+                            </Tag>
+                          )}
+                        </div>
+                      }
+                      onClick={() => handleCardClick(cartoon)}
+                    >
+                      <Card.Meta
+                        title={
+                          <Text ellipsis={{ tooltip: cartoon.title }} strong>
+                            {cartoon.title}
+                          </Text>
+                        }
+                        description={
+                          <Space direction="vertical" size={4}>
+                            <DescriptionText title={cartoon.description}>
+                              {cartoon.description}
+                            </DescriptionText>
+                            <Space size={12}>
+                              {cartoon.views_count && (
+                                <Text type="secondary" style={{ fontSize: 12 }}>
+                                  <EyeOutlined /> {formatNumber(cartoon.views_count)}
+                                </Text>
+                              )}
+                              {cartoon.likes_count && (
+                                <Text type="secondary" style={{ fontSize: 12 }}>
+                                  <StarOutlined /> {formatNumber(cartoon.likes_count)}
+                                </Text>
+                              )}
+                            </Space>
+                          </Space>
+                        }
+                      />
+                    </StyledCard>
+                  </Col>
+                ))}
+              </Row>
+
+              {searchResults.length === 0 && !loading && (
+                <div style={{ textAlign: 'center', padding: '60px 0', color: '#999' }}>
+                  {t('cartoon.noResults')}
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <StyledTabs
+                activeKey={selectedRankId?.toString() || ''}
+                items={tabItems}
+                onChange={handleTabChange}
+                type="card"
+              />
+
+              <Row gutter={[24, 24]}>
+                {cartoonList.map(cartoon => (
+                  <Col xs={12} sm={8} md={6} lg={4} xl={4} key={cartoon.id}>
+                    <StyledCard
+                      hoverable
+                      cover={
+                        <div
+                          style={{ overflow: 'hidden', position: 'relative' }}
+                          onClick={() => handleCardClick(cartoon)}
+                        >
+                          <CartoonImage
+                            src={cartoon.cover}
+                            alt={cartoon.title}
+                            preview={false}
+                          />
+                          {cartoon.is_finish === 1 && (
+                            <Tag color="success" style={{ position: 'absolute', top: 8, right: 8 }}>
+                              {t('cartoon.finished')}
+                            </Tag>
+                          )}
+                        </div>
+                      }
+                      onClick={() => handleCardClick(cartoon)}
+                    >
+                      <Card.Meta
+                        title={
+                          <Text ellipsis={{ tooltip: cartoon.title }} strong>
+                            {cartoon.title}
+                          </Text>
+                        }
+                        description={
+                          <Space direction="vertical" size={4}>
+                            <DescriptionText title={cartoon.description}>
+                              {cartoon.description}
+                            </DescriptionText>
+                            <Space size={12}>
+                              {cartoon.views_count && (
+                                <Text type="secondary" style={{ fontSize: 12 }}>
+                                  <EyeOutlined /> {formatNumber(cartoon.views_count)}
+                                </Text>
+                              )}
+                              {cartoon.likes_count && (
+                                <Text type="secondary" style={{ fontSize: 12 }}>
+                                  <StarOutlined /> {formatNumber(cartoon.likes_count)}
+                                </Text>
+                              )}
+                            </Space>
+                          </Space>
+                        }
+                      />
+                    </StyledCard>
+                  </Col>
+                ))}
+              </Row>
+
+              {cartoonList.length === 0 && !loading && (
+                <div style={{ textAlign: 'center', padding: '60px 0', color: '#999' }}>
+                  {t('cartoon.noData')}
+                </div>
+              )}
+            </>
+          )}
+        </Spin>
+      </ContentWrapper>
+    </CartoonContainer>
+  )
+}
+
+export default Cartoon

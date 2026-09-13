@@ -1,0 +1,39 @@
+# 依赖
+node_modules
+npm-debug.log
+yarn-error.log
+yarn-debug.log
+package-lock.json
+
+# 构建产物
+dist
+build
+
+# 环境变量
+.env.local
+.env.*.local
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+.DS_Store
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# 文档
+README.md
+*.md
+
+# 测试
+coverage
+.nyc_output
+
+# 其他
+*.log
+temp
+tmp

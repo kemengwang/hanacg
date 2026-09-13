@@ -1,0 +1,1003 @@
+import React, { useState, useEffect, useRef } from 'react'
+import { Form, Input, Button, Checkbox, message, Space } from 'antd'
+import {
+  UserOutlined,
+  LockOutlined,
+  KeyOutlined,
+  EyeOutlined,
+  EyeInvisibleOutlined,
+} from '@ant-design/icons'
+import { useGoogleLogin } from '@react-oauth/google'
+import { FcGoogle } from 'react-icons/fc'
+import { FaGithub } from 'react-icons/fa'
+import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import styled from 'styled-components'
+import VerifyCode from '../components/VerifyCode'
+import HeartBeat from '../components/HeartBeat'
+import { logoImage } from '@/utils/images'
+import { setToken } from '@/utils/token'
+import { isMobileDevice } from '@/utils/isMobile'
+
+// Cloudflare Turnstile 配置
+const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || ''
+
+// 创建气泡组件
+const Bubble = styled.div<{ size: number; left: number; delay: number; popped: boolean }>`
+  position: absolute;
+  bottom: -100px;
+  left: ${props => props.left}%;
+  width: ${props => props.size}px;
+  height: ${props => props.size}px;
+  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.3));
+  border-radius: 50%;
+  animation: rise ${props => 4 + props.delay}s ease-in infinite;
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.1s ease-out, opacity 0.1s ease-out;
+  ${props => props.popped && `
+    animation: none;
+    transform: scale(0);
+    opacity: 0;
+  `}
+
+  @keyframes rise {
+    0% {
+      bottom: -100px;
+      opacity: 0;
+      transform: translateX(0) scale(1);
+    }
+    10% {
+      opacity: 0.8;
+    }
+    90% {
+      opacity: 0.8;
+      transform: translateX(${props => Math.sin(props.delay * 10) * 30}px) scale(1);
+    }
+    100% {
+      bottom: 100vh;
+      opacity: 0;
+      transform: translateX(${props => Math.sin(props.delay * 10) * 50}px) scale(1.2);
+    }
+  }
+
+  /* 气泡光泽效果 */
+  &::after {
+    content: '';
+    position: absolute;
+    top: 15%;
+    left: 20%;
+    width: 30%;
+    height: 30%;
+    background: rgba(255, 255, 255, 0.6);
+    border-radius: 50%;
+    filter: blur(2px);
+  }
+`
+
+const LoginContainer = styled.div`
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: linear-gradient(45deg, #667eea, #764ba2, #f093fb, #f5576c, #667eea);
+  background-size: 400% 400%;
+  animation: gradientShift 15s ease infinite;
+  position: relative;
+  overflow: hidden;
+
+  @keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  /* 动态光晕效果 */
+  &::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+    background-size: 60px 60px;
+    animation: moveBackground 30s linear infinite;
+  }
+
+  @keyframes moveBackground {
+    0% { transform: translate(0, 0) rotate(0deg); }
+    100% { transform: translate(60px, 60px) rotate(360deg); }
+  }
+`
+
+const LoginBox = styled.div`
+  width: 100%;
+  max-width: 400px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 20px;
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+  position: relative;
+  z-index: 1;
+  padding: 12px 32px;
+  animation: boxAppear 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+
+  @keyframes boxAppear {
+    from {
+      opacity: 0;
+      transform: translateY(30px) scale(0.9);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @media (max-width: 480px) {
+    max-width: 100%;
+    padding: 24px;
+  }
+`
+
+const Logo = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 24px;
+
+  img {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    margin-bottom: 12px;
+    animation: logoAnimation 3s ease-in-out infinite;
+    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+  }
+
+  @keyframes logoAnimation {
+    0%, 100% {
+      transform: rotate(0deg) scale(1);
+    }
+    50% {
+      transform: rotate(180deg) scale(1.05);
+    }
+  }
+
+  h3 {
+    margin: 0;
+    font-size: 1.3rem;
+    font-weight: bold;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: 0.1em;
+  }
+`
+
+const OAuthDivider = styled.div`
+  display: flex;
+  align-items: center;
+  margin: 24px 0;
+  color: #94a3b8;
+  font-size: 0.875rem;
+
+  &::before,
+  &::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(to right, transparent, #e2e8f0, transparent);
+  }
+
+  &::before {
+    margin-right: 16px;
+  }
+
+  &::after {
+    margin-left: 16px;
+  }
+`
+
+const OAuthButtonContainer = styled.div`
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+`
+
+const OAuthButton = styled.button<{ variant: 'google' | 'github' }>`
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 44px;
+  border: 1px solid ${props => props.variant === 'google' ? '#dadce0' : '#d1d5db'};
+  border-radius: 8px;
+  background: ${props => props.variant === 'google' ? '#fff' : '#24292e'};
+  color: ${props => props.variant === 'github' ? '#fff' : '#3c4043'};
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0 16px;
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px ${props => props.variant === 'google' ? 'rgba(60, 64, 67, 0.3)' : 'rgba(36, 41, 46, 0.3)'};
+    border-color: ${props => props.variant === 'google' ? '#d3d3d3' : '#1a202c'};
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  svg {
+    width: 20px;
+    height: 20px;
+  }
+`
+
+const ModeSwitch = styled.div`
+  text-align: center;
+  margin-top: 16px;
+  color: #667eea;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: color 0.2s;
+
+  &:hover {
+    color: #764ba2;
+    text-decoration: underline;
+  }
+`
+
+// 添加 Turnstile 脚本加载
+const loadTurnstileScript = (): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    // 如果已经加载完成
+    if (window.turnstile) {
+      resolve()
+      return
+    }
+
+    // 检查是否已有脚本标签
+    const existingScript = document.querySelector('script[src*="challenges.cloudflare.com/turnstile"]')
+    if (existingScript) {
+      existingScript.addEventListener('load', () => resolve())
+      existingScript.addEventListener('error', () => reject())
+      return
+    }
+
+    const script = document.createElement('script')
+    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
+    script.async = true
+    script.defer = true
+    script.onload = () => resolve()
+    script.onerror = () => reject(new Error('Failed to load Turnstile script'))
+    document.head.appendChild(script)
+  })
+}
+
+// 保存 OAuth 登录会话（本站 JWT + 用户信息）
+const applyOAuthSession = (data: { token: string; user: { id: number; username: string; email?: string; avatar?: string } }) => {
+  setToken(data.token)
+  localStorage.setItem('isLoggedIn', 'true')
+  localStorage.setItem('username', data.user.username)
+  localStorage.setItem('userId', String(data.user.id))
+  if (data.user.email) {
+    localStorage.setItem('email', data.user.email)
+  }
+  if (data.user.avatar) {
+    localStorage.setItem('avatar', data.user.avatar)
+  }
+}
+
+const Login: React.FC = () => {
+  const { t } = useTranslation()
+  const [loginForm] = Form.useForm()
+  const [registerForm] = Form.useForm()
+  const [verifyCode, setVerifyCode] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [isAgreed, setIsAgreed] = useState(true)
+  const [showHeartBeat, setShowHeartBeat] = useState(false)
+  const [isLoginMode, setIsLoginMode] = useState(true)
+  const [turnstileReady, setTurnstileReady] = useState(false)
+  const turnstileLoginRef = useRef<HTMLDivElement>(null)
+  const turnstileRegisterRef = useRef<HTMLDivElement>(null)
+  const turnstileWidgetId = useRef<{ login: string | null; register: string | null }>({ login: null, register: null })
+  const navigate = useNavigate()
+  const [bubbles, setBubbles] = useState(() =>
+    Array.from({ length: 15 }, () => ({
+      size: Math.random() * 30 + 10,
+      left: Math.random() * 100,
+      delay: Math.random() * 3,
+      popped: false
+    }))
+  )
+
+  useEffect(() => {
+    generateVerifyCode()
+
+    // 气泡破裂效果
+    const popBubbles = setInterval(() => {
+      setBubbles(prev => {
+        const popIndex = Math.floor(Math.random() * prev.length)
+        const newBubbles = [...prev]
+
+        // 破裂动画
+        newBubbles[popIndex] = { ...newBubbles[popIndex], popped: true }
+
+        // 重新生成该气泡
+        setTimeout(() => {
+          setBubbles(current => {
+            const reset = [...current]
+            reset[popIndex] = {
+              size: Math.random() * 30 + 10,
+              left: Math.random() * 100,
+              delay: Math.random() * 3,
+              popped: false
+            }
+            return reset
+          })
+        }, 100)
+
+        return newBubbles
+      })
+    }, 2000)
+
+    return () => clearInterval(popBubbles)
+  }, [])
+
+  // 加载 Turnstile 脚本
+  useEffect(() => {
+    // 如果没有配置站点密钥，跳过加载
+    if (!TURNSTILE_SITE_KEY) {
+      console.warn('Turnstile site key not configured, skipping verification')
+      return
+    }
+
+    loadTurnstileScript()
+      .then(() => {
+        setTurnstileReady(true)
+      })
+      .catch((error) => {
+        console.warn('Failed to load Turnstile:', error)
+        // Turnstile 加载失败，允许用户继续登录（静默降级）
+        setTurnstileReady(true) // 设置为 true 避免一直等待
+      })
+  }, [])
+
+  // GitHub OAuth 回调处理：URL 带 code 时用 code 向后端换取本站 JWT
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const githubCode = params.get('code')
+    if (!githubCode) return
+
+    window.history.replaceState({}, '', window.location.pathname)
+    setLoading(true)
+    ;(async () => {
+      try {
+        const response = await fetch('/api/auth/github', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ code: githubCode })
+        })
+        const data = await response.json()
+        if (data.success) {
+          applyOAuthSession(data)
+          message.success(t('login.loginSuccess'))
+          setShowHeartBeat(true)
+        } else {
+          message.error(data.message || t('login.loginFailed'))
+        }
+      } catch (error: any) {
+        console.error('GitHub OAuth error:', error)
+        message.error(error.message || t('login.loginFailed'))
+      } finally {
+        setLoading(false)
+      }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const generateVerifyCode = () => {
+    const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    let code = ''
+    for (let i = 0; i < 4; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length))
+    }
+    setVerifyCode(code)
+  }
+
+  // 初始化 Turnstile
+  const initTurnstile = (containerId: 'login' | 'register') => {
+    const container = containerId === 'login' ? turnstileLoginRef.current : turnstileRegisterRef.current
+    const widgetKey = containerId === 'login' ? 'login' : 'register'
+
+    if (!container || !window.turnstile) return
+
+    // 清除已有的 widget
+    if (turnstileWidgetId.current[widgetKey]) {
+      try {
+        window.turnstile.remove(turnstileWidgetId.current[widgetKey]!)
+      } catch (e) {
+        // ignore
+      }
+      turnstileWidgetId.current[widgetKey] = null
+    }
+
+    try {
+      const widgetId = window.turnstile.render(container, {
+        sitekey: TURNSTILE_SITE_KEY,
+        theme: 'light',
+        callback: (token: string) => {
+          console.log(token)
+        },
+        'expired-callback': () => {
+          console.log(`Turnstile token expired for ${containerId}`)
+        },
+        // @ts-ignore
+        'error-callback': (err: any) => {
+          console.error(`Turnstile error for ${containerId}:`, err)
+        },
+      })
+      turnstileWidgetId.current[widgetKey] = widgetId
+    } catch (e) {
+      console.warn(`Turnstile render failed for ${containerId}:`, e)
+    }
+  }
+
+  // 当 Turnstile 准备好且容器存在时初始化
+  useEffect(() => {
+    if (turnstileReady && turnstileLoginRef.current) {
+      initTurnstile('login')
+    }
+  }, [turnstileReady, isLoginMode])
+
+  useEffect(() => {
+    if (turnstileReady && !isLoginMode && turnstileRegisterRef.current) {
+      initTurnstile('register')
+    }
+  }, [turnstileReady, isLoginMode])
+
+  // 获取 Turnstile token
+  const getTurnstileToken = (mode: 'login' | 'register'): string | null => {
+    const widgetId = turnstileWidgetId.current[mode]
+    if (window.turnstile && widgetId) {
+      try {
+        return window.turnstile.getResponse(widgetId)
+      } catch (e) {
+        return null
+      }
+    }
+    return null
+  }
+
+  // 重置 Turnstile
+  const resetTurnstile = (mode: 'login' | 'register') => {
+    const widgetId = turnstileWidgetId.current[mode]
+    if (window.turnstile && widgetId) {
+      try {
+        window.turnstile.reset(widgetId)
+      } catch (e) {
+        // ignore
+      }
+    }
+  }
+
+  const handleLogin = async (values: any) => {
+    const isCodeValid = values.code?.toUpperCase() === verifyCode.toUpperCase()
+
+    if (!isCodeValid) {
+      message.error(t('login.verifyCodeError'))
+      generateVerifyCode()
+      loginForm.setFieldsValue({ code: '' })
+      return
+    }
+
+    if (!isAgreed) {
+      message.error(t('login.agreeRequired'))
+      return
+    }
+
+    // 获取 Turnstile token
+    const turnstileToken = getTurnstileToken('login')
+
+    // 如果没有 token 且 Turnstile 已加载，说明用户未完成验证（仅生产环境检查）
+    if (!import.meta.env.DEV && turnstileReady && !turnstileToken) {
+      message.error('请完成人机验证')
+      return
+    }
+
+    setLoading(true)
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          username: values.username,
+          password: values.password,
+          ...(turnstileToken ? { 'cf-turnstile-response': turnstileToken } : {})
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        // 保存登录状态和 token
+        setToken(data.token)
+        localStorage.setItem('isLoggedIn', 'true')
+        localStorage.setItem('username', data.user.username)
+        localStorage.setItem('userId', data.user.id.toString())
+        if (data.user.avatar) {
+          localStorage.setItem('avatar', data.user.avatar)
+        }
+
+        message.success(t('login.loginSuccess'))
+        if (!isMobileDevice()) {
+          setShowHeartBeat(true)
+        } else {
+          setShowHeartBeat(false)
+          navigate('/home')
+        }
+      } else {
+        message.error(data.message || t('login.loginFailed'))
+        // 登录失败时重置 Turnstile
+        resetTurnstile('login')
+      }
+    } catch (error: any) {
+      console.error('Login error:', error)
+      message.error(error.message || t('login.loginFailed'))
+      resetTurnstile('login')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleRegister = async (values: any) => {
+    const isCodeValid = values.code?.toUpperCase() === verifyCode.toUpperCase()
+
+    if (!isCodeValid) {
+      message.error(t('login.verifyCodeError'))
+      generateVerifyCode()
+      registerForm.setFieldsValue({ code: '' })
+      return
+    }
+
+    if (!isAgreed) {
+      message.error(t('login.agreeRequired'))
+      return
+    }
+
+    if (values.password !== values.confirmPassword) {
+      message.error(t('login.confirmPasswordMismatch'))
+      return
+    }
+
+    // 获取 Turnstile token
+    const turnstileToken = getTurnstileToken('register')
+
+    // 如果没有 token 且 Turnstile 已加载，说明用户未完成验证（仅生产环境检查）
+    if (!import.meta.env.DEV && turnstileReady && !turnstileToken) {
+      message.error('请完成人机验证')
+      return
+    }
+
+    setLoading(true)
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          username: values.username,
+          password: values.password,
+          email: values.email,
+          ...(turnstileToken ? { 'cf-turnstile-response': turnstileToken } : {})
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        message.success(t('login.registerSuccess'))
+        toggleMode()
+      } else {
+        message.error(data.message || t('login.registerFailed'))
+        // 注册失败时重置 Turnstile
+        resetTurnstile('register')
+      }
+    } catch (error: any) {
+      console.error('Register error:', error)
+      message.error(error.message || t('login.registerFailed'))
+      resetTurnstile('register')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleHeartBeatComplete = () => {
+    navigate('/home')
+  }
+
+  const handleReset = () => {
+    loginForm.resetFields()
+    registerForm.resetFields()
+    generateVerifyCode()
+    // 重置 Turnstile
+    resetTurnstile('login')
+    resetTurnstile('register')
+  }
+
+  const toggleMode = () => {
+    setIsLoginMode(!isLoginMode)
+    loginForm.resetFields()
+    registerForm.resetFields()
+    generateVerifyCode()
+    // 切换模式后重置对应的 Turnstile
+    setTimeout(() => {
+      resetTurnstile('login')
+      resetTurnstile('register')
+    }, 100)
+  }
+
+  // Google OAuth
+  const googleLogin = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      console.log('Google Access Token:', tokenResponse)
+
+      // 后端用 access_token 验证身份并签发本站 JWT
+      try {
+        const response = await fetch('/api/auth/google', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ accessToken: tokenResponse.access_token })
+        })
+        const data = await response.json()
+
+        if (data.success) {
+          applyOAuthSession(data)
+          message.success(t('login.loginSuccess'))
+          setShowHeartBeat(true)
+        } else {
+          message.error(data.message || t('login.loginFailed'))
+        }
+      } catch (error: any) {
+        console.error('Google login error:', error)
+        message.error(error.message || t('login.loginFailed'))
+      }
+    },
+    onError: () => {
+      console.error('Google Login Failed')
+      message.error(t('login.loginFailed'))
+    },
+  })
+
+  // GitHub OAuth 处理
+  const handleGithubLogin = () => {
+    const clientId = import.meta.env.VITE_GITHUB_CLIENT_ID
+    if (!clientId || clientId === 'your_github_client_id_here') {
+      message.error('GitHub Client ID 未配置，请先配置')
+      return
+    }
+
+    // 构建 GitHub OAuth 授权 URL，回调回登录页（/），由登录页用 code 换取本站 JWT
+    const redirectUri = window.location.origin + '/'
+    const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=user:email`
+
+    // 跳转到 GitHub 授权页面
+    window.location.href = githubAuthUrl
+  }
+
+  return (
+    <>
+      {showHeartBeat ? (
+        <HeartBeat onComplete={handleHeartBeatComplete} />
+      ) : (
+        <LoginContainer>
+          {bubbles.map((bubble, index) => (
+            <Bubble
+              key={index}
+              size={bubble.size}
+              left={bubble.left}
+              delay={bubble.delay}
+              popped={bubble.popped}
+            />
+          ))}
+
+          <LoginBox>
+            <Logo>
+              <img src={logoImage} alt="Logo" />
+              <h3>ChattyPlay</h3>
+            </Logo>
+
+            {isLoginMode ? (
+              <Form
+                form={loginForm}
+                onFinish={handleLogin}
+                layout="vertical"
+                style={{ marginBottom: '0' }}
+              >
+                <Form.Item
+                  name="username"
+                  label={t('login.account')}
+                  rules={[{ required: true, message: t('login.accountRequired') }]}
+                >
+                  <Input
+                    prefix={<UserOutlined />}
+                    placeholder={t('login.accountPlaceholder')}
+                    size="large"
+                    autoComplete="off"
+                  />
+                </Form.Item>
+
+                <Form.Item
+                  name="password"
+                  label={t('login.password')}
+                  rules={[
+                    { required: true, message: t('login.passwordRequired') },
+                    { min: 6, max: 20, message: t('login.passwordLength') }
+                  ]}               
+                >
+                  <Input.Password
+                    prefix={<LockOutlined />}
+                    placeholder={t('login.passwordPlaceholder')}
+                    size="large"
+                    iconRender={(visible) => (
+                      visible ? <EyeOutlined /> : <EyeInvisibleOutlined />
+                    )}
+                  />
+                </Form.Item>
+
+                <Form.Item
+                  name="code"
+                  label={t('login.verifyCode')}
+                  rules={[{ required: true, message: t('login.verifyCodeRequired') }]}
+                >
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <Input
+                      prefix={<KeyOutlined />}
+                      placeholder={t('login.verifyCodePlaceholder')}
+                      size="large"
+                      maxLength={4}
+                      style={{ flex: 1 }}
+                    />
+                    <div style={{ cursor: 'pointer', userSelect: 'none' }} onClick={generateVerifyCode}>
+                      <VerifyCode code={verifyCode} />
+                    </div>
+                  </div>
+                </Form.Item>
+
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '12px',
+                  paddingTop: '12px',
+                  borderTop: '1px solid #e2e8f0'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Checkbox
+                      checked={isAgreed}
+                      onChange={(e) => setIsAgreed(e.target.checked)}
+                    >
+                      {t('login.agree')}
+                    </Checkbox>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px' }}>
+                  <div ref={turnstileLoginRef} />
+                </div>
+
+                <Form.Item>
+                  <Space style={{ width: '100%', justifyContent: 'center' }} size={8}>
+                    <Button
+                      type="primary"
+                      htmlType="submit"
+                      loading={loading}
+                      style={{
+                        flex: 1,
+                        height: '44px',
+                        fontSize: '0.95rem',
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        border: 'none'
+                      }}
+                    >
+                      {t('login.loginBtn')}
+                    </Button>
+                    <Button
+                      onClick={handleReset}
+                      style={{ flex: 1, height: '44px', fontSize: '0.95rem' }}
+                    >
+                      {t('login.resetBtn')}
+                    </Button>
+                  </Space>
+                </Form.Item>
+              </Form>
+            ) : (
+              <Form
+                form={registerForm}
+                onFinish={handleRegister}
+                layout="vertical"
+                style={{ marginBottom: '0' }}
+              >
+                <Form.Item
+                  name="username"
+                  label={t('login.account')}
+                  rules={[
+                    { required: true, message: t('login.accountRequired') },
+                    { min: 3, max: 20, message: t('login.usernameLength') }
+                  ]}
+                >
+                  <Input
+                    prefix={<UserOutlined />}
+                    placeholder={t('login.accountPlaceholder')}
+                    size="large"
+                    autoComplete="off"
+                  />
+                </Form.Item>
+
+                <Form.Item
+                  name="password"
+                  label={t('login.password')}
+                  rules={[
+                    { required: true, message: t('login.passwordRequired') },
+                    { min: 6, max: 20, message: t('login.passwordLengthRegister') }
+                  ]}
+                >
+                  <Input.Password
+                    prefix={<LockOutlined />}
+                    placeholder={t('login.passwordPlaceholder')}
+                    size="large"
+                    iconRender={(visible) => (
+                      visible ? <EyeOutlined /> : <EyeInvisibleOutlined />
+                    )}
+                  />
+                </Form.Item>
+
+                <Form.Item
+                  name="confirmPassword"
+                  label={t('login.confirmPassword')}
+                  dependencies={['password']}
+                  rules={[
+                    { required: true, message: t('login.confirmPasswordRequired') },
+                    ({ getFieldValue }) => ({
+                      validator(_, value) {
+                        if (!value || getFieldValue('password') === value) {
+                          return Promise.resolve()
+                        }
+                        return Promise.reject(new Error(t('login.confirmPasswordMismatch')))
+                      },
+                    }),
+                  ]}
+                >
+                  <Input.Password
+                    prefix={<LockOutlined />}
+                    placeholder={t('login.confirmPasswordPlaceholder')}
+                    size="large"
+                    iconRender={(visible) => (
+                      visible ? <EyeOutlined /> : <EyeInvisibleOutlined />
+                    )}
+                  />
+                </Form.Item>
+
+                {/* 注册时添加邮箱字段（如果需要） */}
+                <Form.Item
+                  name="email"
+                  label={t('login.email') || '邮箱'}
+                  rules={[
+                    { type: 'email', message: t('login.emailInvalid') || '请输入有效的邮箱地址' }
+                  ]}
+                >
+                  <Input
+                    placeholder="your@email.com"
+                    size="large"
+                  />
+                </Form.Item>
+
+                <Form.Item
+                  name="code"
+                  label={t('login.verifyCode')}
+                  rules={[{ required: true, message: t('login.verifyCodeRequired') }]}
+                >
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <Input
+                      prefix={<KeyOutlined />}
+                      placeholder={t('login.verifyCodePlaceholder')}
+                      size="large"
+                      maxLength={4}
+                      style={{ flex: 1 }}
+                    />
+                    <div style={{ cursor: 'pointer', userSelect: 'none' }} onClick={generateVerifyCode}>
+                      <VerifyCode code={verifyCode} />
+                    </div>
+                  </div>
+                </Form.Item>
+
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '12px',
+                  paddingTop: '12px',
+                  borderTop: '1px solid #e2e8f0'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Checkbox
+                      checked={isAgreed}
+                      onChange={(e) => setIsAgreed(e.target.checked)}
+                    >
+                      {t('login.agree')}
+                    </Checkbox>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }}>
+                  <div ref={turnstileRegisterRef} />
+                </div>
+
+                <Form.Item style={{ marginBottom: '8px' }}>
+                  <Space style={{ width: '100%', justifyContent: 'center' }} size={8}>
+                    <Button
+                      type="primary"
+                      htmlType="submit"
+                      loading={loading}
+                      style={{
+                        flex: 1,
+                        height: '44px',
+                        fontSize: '0.95rem',
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        border: 'none'
+                      }}
+                    >
+                      {t('login.registerBtn')}
+                    </Button>
+                    <Button
+                      onClick={handleReset}
+                      style={{ flex: 1, height: '44px', fontSize: '0.95rem' }}
+                    >
+                      {t('login.resetBtn')}
+                    </Button>
+                  </Space>
+                </Form.Item>
+              </Form>
+            )}
+
+            <ModeSwitch onClick={toggleMode}>
+              {isLoginMode ? t('login.switchToRegister') : t('login.switchToLogin')}
+            </ModeSwitch>
+
+            {/* OAuth 第三方登录 */}
+            <OAuthDivider>{t('login.thirdPartyLoginTip')}</OAuthDivider>
+
+            <OAuthButtonContainer>
+              <OAuthButton variant="google" onClick={() => googleLogin()}>
+                <FcGoogle />
+                Google
+              </OAuthButton>
+              <OAuthButton variant="github" onClick={handleGithubLogin}>
+                <FaGithub />
+                GitHub
+              </OAuthButton>
+            </OAuthButtonContainer>
+          </LoginBox>
+        </LoginContainer>
+      )}
+    </>
+  )
+}
+
+export default Login

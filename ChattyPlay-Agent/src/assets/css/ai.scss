@@ -1,0 +1,391 @@
+.markdown-content {
+  line-height: 1.7;
+  color: #334155;
+
+  // 标题样式
+  h1, h2, h3, h4, h5, h6 {
+    margin: 16px 0 8px;
+    font-weight: 600;
+    line-height: 1.4;
+    color: #1e293b;
+
+    &:first-child {
+      margin-top: 0;
+    }
+  }
+
+  h1 { font-size: 1.8rem; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }
+  h2 { font-size: 1.5rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; }
+  h3 { font-size: 1.25rem; }
+  h4 { font-size: 1.1rem; }
+  h5 { font-size: 1rem; }
+  h6 { font-size: 0.9rem; color: #64748b; }
+
+  // 段落
+  p {
+    margin: 8px 0;
+
+    &:first-child {
+      margin-top: 0;
+    }
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  // 列表
+  ul, ol {
+    margin: 8px 0;
+    padding-left: 24px;
+  }
+
+  li {
+    margin: 4px 0;
+  }
+
+  // 代码块容器
+  .code-container {
+    margin: 12px 0;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #1e293b;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  }
+
+  .code-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 16px;
+    background: #334155;
+    border-bottom: 1px solid #475569;
+
+    .language-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: #e2e8f0;
+      font-family: 'Fira Code', 'Consolas', monospace;
+    }
+
+    .copy-btn {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 12px;
+      background: #475569;
+      color: #e2e8f0;
+      border: none;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+
+      &:hover {
+        background: #64748b;
+        transform: translateY(-1px);
+      }
+
+      &:active {
+        transform: translateY(0);
+      }
+
+      .copy-icon {
+        width: 14px;
+        height: 14px;
+      }
+    }
+  }
+
+  pre {
+    margin: 0;
+    padding: 16px;
+    overflow-x: auto;
+    background: #1e293b;
+
+    code {
+      font-family: 'Fira Code', 'Consolas', 'Monaco', monospace;
+      font-size: 0.9rem;
+      line-height: 1.6;
+      color: #e2e8f0;
+      background: transparent;
+      padding: 0;
+    }
+  }
+
+  // 行内代码
+  code:not(pre code) {
+    background: #f1f5f9;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Fira Code', 'Consolas', monospace;
+    font-size: 0.9em;
+    color: #dc2626;
+  }
+
+  // 引用块
+  blockquote {
+    border-left: 4px solid #3b82f6;
+    padding-left: 16px;
+    margin: 12px 0;
+    color: #64748b;
+    font-style: italic;
+    background: #f8fafc;
+    padding: 12px 16px;
+    border-radius: 0 8px 8px 0;
+  }
+
+  // 表格
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 12px 0;
+    overflow: hidden;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+
+    th, td {
+      border: 1px solid #e2e8f0;
+      padding: 12px 16px;
+      text-align: left;
+    }
+
+    th {
+      background: #f8fafc;
+      font-weight: 600;
+      color: #334155;
+    }
+
+    tr:nth-child(even) {
+      background: #f8fafc;
+    }
+
+    tr:hover {
+      background: #f1f5f9;
+    }
+  }
+
+  // 链接
+  a {
+    color: #3b82f6;
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: all 0.2s ease;
+
+    &:hover {
+      border-bottom-color: #3b82f6;
+    }
+  }
+
+  // 分隔线
+  hr {
+    border: none;
+    border-top: 2px solid #e2e8f0;
+    margin: 16px 0;
+  }
+
+  // 图片
+  img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    margin: 8px 0;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  }
+
+  // 任务列表
+  input[type="checkbox"] {
+    margin-right: 8px;
+    accent-color: #3b82f6;
+  }
+
+  // 移动端优化
+  @media (max-width: 768px) {
+    h1 { font-size: 1.4rem; }
+    h2 { font-size: 1.2rem; }
+    h3 { font-size: 1.1rem; }
+
+    .code-header {
+      padding: 6px 12px;
+
+      .language-label {
+        font-size: 0.65rem;
+      }
+
+      .copy-btn {
+        padding: 3px 8px;
+        font-size: 0.65rem;
+
+        .copy-icon {
+          width: 12px;
+          height: 12px;
+        }
+      }
+    }
+
+    pre {
+      padding: 12px;
+
+      code {
+        font-size: 0.8rem;
+      }
+    }
+
+    table {
+      font-size: 0.85rem;
+
+      th, td {
+        padding: 8px 12px;
+      }
+    }
+
+    ul, ol {
+      padding-left: 20px;
+    }
+  }
+}
+
+// 流式内容样式
+.streaming-content {
+  position: relative;
+
+  .cursor-blink {
+    display: inline-block;
+    width: 2px;
+    height: 1.2em;
+    background: #3b82f6;
+    animation: blink 1s infinite;
+    vertical-align: text-bottom;
+    margin-left: 2px;
+  }
+}
+
+@keyframes blink {
+  0%, 50% {
+    opacity: 1;
+  }
+  51%, 100% {
+    opacity: 0;
+  }
+}
+
+// 消息动画
+@keyframes messageSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.message-animate {
+  animation: messageSlideIn 0.3s ease-out;
+}
+
+// 欢迎卡片动画
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.welcome-animate {
+  animation: fadeIn 0.6s ease-out;
+}
+
+// 脉冲动画
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+// 滚动条样式
+.custom-scrollbar {
+  &::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 10px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+    border-radius: 10px;
+
+    &:hover {
+      background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
+    }
+  }
+
+  // 移动端滚动条更细
+  @media (max-width: 768px) {
+    &::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+  }
+}
+
+// 深色模式支持
+@media (prefers-color-scheme: dark) {
+  .markdown-content {
+    color: #cbd5e1;
+
+    h1, h2, h3, h4, h5, h6 {
+      color: #f1f5f9;
+    }
+
+    h1 { border-bottom-color: #475569; }
+    h2 { border-bottom-color: #475569; }
+
+    code:not(pre code) {
+      background: #334155;
+      color: #fca5a5;
+    }
+
+    blockquote {
+      background: #1e293b;
+      border-left-color: #60a5fa;
+      color: #94a3b8;
+    }
+
+    table {
+      th, td {
+        border-color: #475569;
+      }
+
+      th {
+        background: #1e293b;
+        color: #e2e8f0;
+      }
+
+      tr:nth-child(even) {
+        background: #1e293b;
+      }
+
+      tr:hover {
+        background: #334155;
+      }
+    }
+  }
+}

@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/public/icon.ico" />
+  <link rel="preconnect" href="https://challenges.cloudflare.com" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ChattyPlay</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+  </style>
+
+  <!-- 用户行为分析和页面性能监控 -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-G81HHJ6B4C"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+      dataLayer.push(arguments);
+    }
+    gtag('js', new Date());
+    gtag('config', 'G-G81HHJ6B4C');
+  </script>
+
+  <script src="https://unpkg.com/d3@7.8.5/dist/d3.min.js"></script>
+  <script src="https://unpkg.com/markmap-lib@0.15.3/dist/browser/index.js"></script>
+  <script src="https://unpkg.com/markmap-view@0.15.3/dist/browser/index.js"></script>
+
+  <!-- Adsterra Popunder 广告 -->
+  <script src="https://pl30290638.effectivecpmnetwork.com/5e/73/ce/5e73cebc6c41a54d9370034eb01869ea.js"></script>
+</head>
+
+<body>
+  <div id="root"></div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      // 禁用常用快捷键
+      document.addEventListener("keydown", function (e) {
+        // F12
+        if (e.keyCode === 123) {
+          e.preventDefault();
+          return false;
+        }
+
+        // Ctrl+U (查看源代码)
+        if (
+          e.ctrlKey &&
+          e.shiftKey &&
+          (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67)
+        ) {
+          e.preventDefault();
+          return false;
+        }
+
+        // Ctrl+Shift+C (元素检查 - Mac)
+        if (e.metaKey && e.shiftKey && e.keyCode === 67) {
+          e.preventDefault();
+          return false;
+        }
+
+        // Ctrl+U (查看源代码)
+        if (e.ctrlKey && e.keyCode === 85) {
+          e.preventDefault();
+          return false;
+        }
+
+        // Mac Cmd+Option+I (开发者工具)
+        if (e.metaKey && e.altKey && e.keyCode === 73) {
+          e.preventDefault();
+          return false;
+        }
+      });
+
+      // 检测开发者工具 (通过窗口大小变化)
+      const devtools = {
+        open: false,
+        orientation: null,
+      };
+
+      const threshold = 160;
+
+      setInterval(function () {
+        const widthThreshold =
+          window.outerWidth - window.innerWidth > threshold;
+        const heightThreshold =
+          window.outerHeight - window.innerHeight > threshold;
+        const orientation = widthThreshold ? "vertical" : "horizontal";
+
+        if (
+          !(heightThreshold && widthThreshold) &&
+          ((window.Firebug &&
+            window.Firebug.chrome &&
+            window.Firebug.chrome.isInitialized) ||
+            widthThreshold ||
+            heightThreshold)
+        ) {
+          if (!devtools.open || devtools.orientation !== orientation) {
+            devtools.open = true;
+            devtools.orientation = orientation;
+          }
+        } else {
+          devtools.open = false;
+          devtools.orientation = null;
+        }
+      }, 500);
+
+      setInterval(function () {
+        const startTime = new Date().getTime();
+        debugger;
+        const endTime = new Date().getTime();
+        if (endTime - startTime > 100) {
+          // 刷新页面
+          window.location.reload();
+        }
+      }, 2000);
+
+      // 禁用拖拽
+      document.addEventListener("dragstart", function (e) {
+        e.preventDefault();
+        return false;
+      });
+
+      console.log(
+        "%cChattPlay",
+        `padding: 10px 40px;
+        font-size: 24px;
+        font-weight: 600;
+        border-radius: 10px;
+        background-color:silver;
+        background-image:
+          radial-gradient(circle at 100% 150%, silver 24%, white 24%, white 28%, silver 28%, silver 36%, white 36%, white 40%, transparent 40%, transparent),
+          radial-gradient(circle at 0 150%, silver 24%, white 24%, white 28%, silver 28%, silver 36%, white 36%, white 40%, transparent 40%, transparent),
+          radial-gradient(circle at 50% 100%, white 10%, silver 10%, silver 23%, white 23%, white 30%, silver 30%, silver 43%, white 43%, white 50%, silver 50%, silver 63%, white 63%, white 71%, transparent 71%, transparent),
+          radial-gradient(circle at 100% 50%, white 5%, silver 5%, silver 15%, white 15%, white 20%, silver 20%, silver 29%, white 29%, white 34%, silver 34%, silver 44%, white 44%, white 49%, transparent 49%, transparent),
+          radial-gradient(circle at 0 50%, white 5%, silver 5%, silver 15%, white 15%, white 20%, silver 20%, silver 29%, white 29%, white 34%, silver 34%, silver 44%, white 44%, white 49%, transparent 49%, transparent);
+          background-size: 100px 50px;`,
+      );
+      console.log(
+        "%c项目地址：https://github.com/P1kaj1uu/ChattyPlay-Agent",
+        "font-size: 16px; color: blue;",
+      );
+      console.log(
+        "%c欢迎大家提交 issue 和 PR，一起完善共建 ChattyPlay！",
+        "font-size: 16px; color: green;",
+      );
+      console.log(
+        "%c[Info] 作者：P1kaj1uu（微信号：Dveiklokk）",
+        "font-size: 16px; color: purple;",
+      );
+    })();
+  </script>
+
+  <!-- Fundebug 错误监控 -->
+  <script async src="https://js.fundebug.cn/fundebug.2.8.8.min.js"></script>
+
+  <!-- Cloudflare Turnstile 反机器人验证 -->
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+  <!-- Fundebug 录屏插件 -->
+  <script async src="https://js.fundebug.cn/fundebug.revideo.0.8.0.min.js"></script>
+  <script>
+    // 配置 Fundebug
+    fundebug.apikey =
+      "fa-0aa5a027de384efbb4dc8a456c863526";
+    fundebug.appversion = "1.0.0";
+
+    // 全局错误监听
+    // 监听未捕获的 Promise 错误
+    window.addEventListener("unhandledrejection", function (event) {
+      fundebug.notifyError(event.reason, {
+        metaData: {
+          type: "unhandledrejection",
+        },
+      });
+    });
+
+    // 监听全局错误
+    window.addEventListener("error", function (event) {
+      fundebug.notifyError(event.error || new Error(event.message), {
+        metaData: {
+          type: "global error",
+          filename: event.filename,
+          lineno: event.lineno,
+          colno: event.colno,
+        },
+      });
+    });
+  </script>
+
+  <script type="module" src="/src/main.tsx"></script>
+
+  <!-- Adsterra Social Bar 广告 -->
+  <script src="https://pl30290994.effectivecpmnetwork.com/3e/ae/e7/3eaee701a4ed16f85cdee47a449b02cf.js"></script>
+</body>
+
+</html>
