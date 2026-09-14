@@ -3,3 +3,14 @@
 
 # macOS
 .DS_Store
+
+# Workspace build and local state
+node_modules/
+dist/
+.env
+.env.local
+.env.*.local
+coverage/
+test-results/
+playwright-report/
+*.tsbuildinfo

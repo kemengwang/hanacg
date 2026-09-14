@@ -1,0 +1,13 @@
+{
+  "name": "@hanacg/source-engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@hanacg/domain": "workspace:*",
+    "@hanacg/platform": "workspace:*"
+  }
+}

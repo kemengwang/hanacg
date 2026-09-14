@@ -1,0 +1,100 @@
+{
+  "retrieved": "2026-09-14",
+  "metadata": "Bangumi public metadata via https://bgm.anibaka.com",
+  "artwork": [
+    {
+      "name": "葬送的芙莉莲",
+      "subject": "https://bgm.tv/subject/400602",
+      "local": "/artwork/frieren.jpg",
+      "posterPage": "https://myanimelist.net/anime/52991",
+      "posterMetadata": "https://api.jikan.moe/v4/anime/52991",
+      "note": "Poster from MyAnimeList CDN; copyright belongs to the respective rightsholders."
+    },
+    {
+      "name": "迷宫饭",
+      "subject": "https://bgm.tv/subject/395378",
+      "local": "/artwork/dungeon.jpg",
+      "posterPage": "https://myanimelist.net/anime/52701",
+      "posterMetadata": "https://api.jikan.moe/v4/anime/52701",
+      "note": "Poster from MyAnimeList CDN; copyright belongs to the respective rightsholders."
+    },
+    {
+      "name": "孤独摇滚！",
+      "subject": "https://bgm.tv/subject/328609",
+      "local": "/artwork/bocchi.jpg",
+      "posterPage": "https://myanimelist.net/anime/47917",
+      "posterMetadata": "https://api.jikan.moe/v4/anime/47917",
+      "note": "Poster from MyAnimeList CDN; copyright belongs to the respective rightsholders."
+    },
+    {
+      "name": "药屋少女的呢喃",
+      "subject": "https://bgm.tv/subject/420628",
+      "local": "/artwork/apothecary.jpg",
+      "posterPage": "https://myanimelist.net/anime/54492",
+      "posterMetadata": "https://api.jikan.moe/v4/anime/54492",
+      "note": "Poster from MyAnimeList CDN; copyright belongs to the respective rightsholders."
+    },
+    {
+      "name": "跃动青春",
+      "subject": "https://bgm.tv/subject/357961",
+      "local": "/artwork/skip.jpg",
+      "posterPage": "https://myanimelist.net/anime/50416",
+      "posterMetadata": "https://api.jikan.moe/v4/anime/50416",
+      "note": "Poster from MyAnimeList CDN; copyright belongs to the respective rightsholders."
+    },
+    {
+      "name": "夏日重现",
+      "subject": "https://bgm.tv/subject/326895",
+      "local": "/artwork/summer.jpg",
+      "posterPage": "https://myanimelist.net/anime/47194",
+      "posterMetadata": "https://api.jikan.moe/v4/anime/47194",
+      "note": "Poster from MyAnimeList CDN; copyright belongs to the respective rightsholders."
+    },
+    {
+      "name": "紫罗兰永恒花园",
+      "subject": "https://bgm.tv/subject/183878",
+      "local": "/artwork/violet.jpg",
+      "posterPage": "https://myanimelist.net/anime/33352",
+      "posterMetadata": "https://api.jikan.moe/v4/anime/33352",
+      "note": "Poster from MyAnimeList CDN; copyright belongs to the respective rightsholders."
+    },
+    {
+      "name": "灵能百分百",
+      "subject": "https://bgm.tv/subject/158316",
+      "local": "/artwork/mob.jpg",
+      "posterPage": "https://myanimelist.net/anime/32182",
+      "posterMetadata": "https://api.jikan.moe/v4/anime/32182",
+      "note": "Poster from MyAnimeList CDN; copyright belongs to the respective rightsholders."
+    },
+    {
+      "name": "摇曳露营△",
+      "subject": "https://bgm.tv/subject/207195",
+      "local": "/artwork/yuru.jpg",
+      "posterPage": "https://myanimelist.net/anime/34798",
+      "posterMetadata": "https://api.jikan.moe/v4/anime/34798",
+      "note": "Poster from MyAnimeList CDN; copyright belongs to the respective rightsholders."
+    },
+    {
+      "name": "奇巧计程车",
+      "subject": "https://bgm.tv/subject/325285",
+      "local": "/artwork/odd.jpg",
+      "posterPage": "https://myanimelist.net/anime/46102",
+      "posterMetadata": "https://api.jikan.moe/v4/anime/46102",
+      "note": "Poster from MyAnimeList CDN; copyright belongs to the respective rightsholders."
+    },
+    {
+      "name": "少女终末旅行",
+      "subject": "https://bgm.tv/subject/218707",
+      "local": "/artwork/girls.jpg",
+      "posterPage": "https://myanimelist.net/anime/35838",
+      "posterMetadata": "https://api.jikan.moe/v4/anime/35838",
+      "note": "Poster from MyAnimeList CDN; copyright belongs to the respective rightsholders."
+    }
+  ],
+  "hero": {
+    "local": "/artwork/hero-frieren.jpg",
+    "page": "https://frieren-anime.jp/story/1st/ep01/",
+    "image": "https://frieren-anime.jp/wp-content/uploads/2023/09/01_03.jpg",
+    "copyright": "© 山田鐘人・アベツカサ／小学館／「葬送のフリーレン」製作委員会"
+  }
+}
