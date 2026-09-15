@@ -12,12 +12,15 @@ const subject = {
   tags: [{ name: '奇幻' }],
 };
 test.beforeEach(async ({ page }) => {
+  await page.route('**/api/playback/search?**', (route) =>
+    route.fulfill({ json: { results: [] } }),
+  );
   await page.route('https://api.bgm.tv/**', (route) =>
     route.fulfill({ json: { data: [subject] } }),
   );
 });
 
-test('discovery, filters, detail, saved items and persistence', async ({ page }) => {
+test('discovery, filters, playback navigation, saved items and persistence', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: '今天，看点什么？' })).toBeVisible();
   await expect(page.locator('.anime-card')).toHaveCount(6);
@@ -25,9 +28,8 @@ test('discovery, filters, detail, saved items and persistence', async ({ page })
   await expect(page.locator('.anime-card')).toHaveCount(4);
   await page.getByRole('button', { name: '全部', exact: true }).click();
   await page.getByRole('button', { name: '查看番剧', exact: true }).click();
-  await expect(page.getByRole('dialog', { name: '葬送的芙莉莲详情' })).toBeVisible();
-  await page.getByRole('dialog').getByRole('button', { name: '加入追番', exact: true }).click();
-  await page.keyboard.press('Escape');
+  await expect(page).toHaveURL(/#\/watch\/400602/);
+  await page.getByRole('button', { name: '加入追番', exact: true }).click();
   await page.getByRole('button', { name: '我的追番', exact: true }).click();
   await expect(page.locator('.anime-card')).toHaveCount(1);
   await page.reload();
@@ -119,9 +121,14 @@ test('mobile drawer, dialog keyboard behavior and no horizontal overflow', async
   await expect(page.locator('.sidebar')).not.toBeVisible();
   await page.getByRole('button', { name: '浏览精选番剧' }).click();
   await page.getByRole('button', { name: '查看番剧', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '葬送的芙莉莲', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: '返回发现' }).click();
+  await page.getByRole('button', { name: '展开导航栏', exact: true }).last().click();
+  await page.getByRole('button', { name: '外观与偏好', exact: true }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.getByRole('button', { name: '收起导航栏', exact: true }).last().click();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );

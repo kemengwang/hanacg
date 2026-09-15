@@ -9,7 +9,8 @@
   "dependencies": {
     "@hanacg/domain": "workspace:*",
     "@hanacg/api-client": "workspace:*",
-    "@hanacg/platform": "workspace:*"
+    "@hanacg/platform": "workspace:*",
+    "@hanacg/source-engine": "workspace:*"
   },
   "peerDependencies": {
     "react": "^19.2.0"

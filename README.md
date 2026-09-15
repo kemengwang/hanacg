@@ -14,15 +14,15 @@ Hana ACG 是一个以前端为主导的动漫视频播放平台，首批目标�
 - macOS 与 Windows 使用 Electron，并复用 Web 的 renderer 与 UI。
 - iOS 与 Android 使用 React Native；可以由 Expo 管理项目，需要原生能力时采用支持原生模块的构建方式。
 - 工作区使用 **pnpm monorepo**，Web 使用 **Vite + React + TypeScript**；本阶段使用 React hooks 管理发现页状态、Lucide 图标、Vitest 共享逻辑测试和 Playwright 浏览器验证。
-- 路由、全局状态库、播放器实现、Native 构建与各端发布流程尚未确定；当前没有为了首页引入这些依赖。
+- 服务端使用 **Fastify + TypeScript**，与 Vite SPA 分离，不使用 SSR。Web 播放器采用 HTMLVideoElement + HLS.js；播放页使用 hash 地址支持刷新与分享。全局状态库、Native 构建与各端发布流程仍待实际需求确定。
 
-## 本次交付：番剧发现
+## 当前能力：发现与播放
 
-Web 已可运行：Codex 客户端风格的可折叠侧栏、亮色 / 暗色 / 跟随系统、推荐横幅、番剧类型筛选、评分 / 年份排序、搜索、每日放送、高分佳作、详情预览与本地追番。支持手机窄屏、键盘操作与请求失败反馈。
+Web 已可运行：Codex 客户端风格的可折叠侧栏、亮色 / 暗色 / 跟随系统、推荐横幅、番剧类型筛选、评分 / 年份排序、搜索、每日放送、高分佳作、独立播放页与本地追番。支持手机窄屏、键盘操作与请求失败反馈。
 
-推荐页包含 11 部真实番剧的本地资料与海报快照；搜索、放送表和高分列表通过 Bangumi 公开 API 请求元数据。网络不可用时明确回退到精选；放送表失败不会生成虚假的更新记录。当前未接入视频播放、多来源规则执行、账户或观看记录写入。
+推荐页包含 11 部真实番剧的本地资料与海报快照；搜索、放送表和高分列表通过 Bangumi 公开 API 请求元数据。网络不可用时明确回退到精选；放送表失败不会生成虚假的更新记录。点击番剧直接进入播放页，支持来源匹配、按来源加载线路和分集、解析播放地址、手动换源、下一集及本地观看历史。没有账户或通用远程规则执行器。
 
-桌面和移动端目录是带独立包名的工作区占位，还不能启动 Electron / React Native 客户端。播放器与来源包目前只定义接口。后续按以上平台边界逐步实现。
+桌面和移动端目录是带独立包名的工作区占位，还不能启动 Electron / React Native 客户端。共享包提供来源契约、匹配、播放编排与历史逻辑，站点网络/HTML adapter 运行在 Fastify，Web adapter 实现播放器契约。Native 播放尚未实现。
 
 ### 本地运行
 
@@ -33,20 +33,24 @@ pnpm install
 pnpm dev
 ```
 
-打开 http://127.0.0.1:5173 。构建后的静态资源位于 `apps/web/dist`。
+打开 http://127.0.0.1:5173 。`pnpm dev` 同时启动 Vite（5173）与 Fastify（3001），Vite 将 `/api` 代理到 Fastify。构建产物为 `apps/web/dist` 和 `apps/server/dist`。
+
+若本地代理使用 `198.18.0.0/15` Fake-IP DNS，显式运行 `HANA_FAKE_IP_DNS=1 pnpm dev`。仅在信任的本地代理环境使用；默认仍拒绝非公网地址。
 
 ```sh
-pnpm check           # 类型检查、共享逻辑测试、生产构建
+pnpm check           # Web/服务端类型检查、共享及服务端单测、两端生产构建
 pnpm test:e2e        # 浏览器交互与视觉截图，需要安装 Google Chrome
 pnpm build
+pnpm --filter @hanacg/server start
 pnpm --filter @hanacg/web preview
+node scripts/verify-live-playback.mjs # 单独验证真实来源；需要先 pnpm dev
 ```
 
 根命令只覆盖 Hana 工作区，不会运行或修改参考项目。E2E 使用受控的第三方接口响应，在线连通性另行验证。
 
-默认数据地址是 `https://api.bgm.tv`。如所在网络无法访问，可参考 `apps/web/.env.example` 设置 `VITE_BANGUMI_API_BASE` 到兼容、允许浏览器跨域请求的 HTTPS 元数据端点。此项是公开地址，会进入客户端产物，不能填入密钥。当前不需要后端或薄代理。
+默认数据地址是 `https://api.bgm.tv`。如所在网络无法访问，可参考 `apps/web/.env.example` 设置 `VITE_BANGUMI_API_BASE` 到兼容、允许浏览器跨域请求的 HTTPS 元数据端点。此项是公开地址，会进入客户端产物，不能填入密钥。发现页继续直连 Bangumi；来源与播放请求走独立 Fastify 服务。生产环境需将同域 `/api/*` 转发到该服务（preview 仅预览静态前端，不自带 API 转发）。
 
-界面规范、接口说明与素材出处见 [发现页设计](docs/design/discovery.md)。
+界面规范与素材出处见 [发现页设计](docs/design/discovery.md)。播放接口、来源限制与部署说明见 [播放链路](docs/design/playback.md)。
 
 ## 架构原则
 
@@ -66,20 +70,23 @@ flowchart TB
     API --> Domain
     API --> Platform
     Adapters --> Platform
-    Core -. 后续播放编排 .-> Playback[来源引擎 / 播放器契约]
+    Core --> Playback[来源契约与匹配]
+    API --> Server[Fastify 来源 API]
+    Server --> Sources[站点 adapter / 媒体网关]
+    Apps --> Player[Web 播放器 adapter]
 ```
 
 图中实线表示依赖方向，平台 adapter 由应用层创建并注入共享业务；共享契约不反向依赖具体平台实现。各包职责、公开入口约束及开发规范见 [AGENTS.md](AGENTS.md)。
 
-| 能力 | 复用范围 | 实现边界 |
-| --- | --- | --- |
-| 领域、来源、API、业务状态 | 五端共享 | 与渲染和平台 API 解耦 |
-| UI 契约、设计令牌、图标资源 | 五端共享 | Web 与 Native 可有不同 renderer |
-| Web UI | Web、macOS、Windows | Electron 复用 Web renderer |
-| Native UI | iOS、Android | React Native 共享实现 |
-| 播放、存储、网络、系统能力 | 共享接口 | 各平台通过明确 adapter 实现 |
+| 能力                        | 复用范围            | 实现边界                        |
+| --------------------------- | ------------------- | ------------------------------- |
+| 领域、来源、API、业务状态   | 五端共享            | 与渲染和平台 API 解耦           |
+| UI 契约、设计令牌、图标资源 | 五端共享            | Web 与 Native 可有不同 renderer |
+| Web UI                      | Web、macOS、Windows | Electron 复用 Web renderer      |
+| Native UI                   | iOS、Android        | React Native 共享实现           |
+| 播放、存储、网络、系统能力  | 共享接口            | 各平台通过明确 adapter 实现     |
 
-Web 端仅在 CORS、请求头、Cookie 或 HTML 解析等浏览器限制确有需要时增加薄代理。Electron 的文件系统及其他特权能力必须留在 main/preload 边界之后，不直接暴露给 renderer。
+来源链路通过 Fastify 承接受限请求头、HTML 解析和 HLS 资源访问；元数据、来源条目、分集和媒体地址分别建模。Electron 的文件系统及其他特权能力必须留在 main/preload 边界之后，不直接暴露给 renderer。
 
 ## 工作区布局
 
@@ -89,13 +96,14 @@ Web 端仅在 CORS、请求头、Cookie 或 HTML 解析等浏览器限制确有�
 .
 ├── apps/
 │   ├── web/                 # React Web
+│   ├── server/              # Fastify 来源 API 与媒体网关
 │   ├── desktop/             # Electron 入口占位，后续复用 Web renderer
 │   └── mobile/              # React Native 入口占位（iOS、Android）
 ├── packages/
 │   ├── domain/              # 番剧模型、查询契约与纯筛选逻辑
-│   ├── source-engine/       # 来源适配器契约，规则执行待实现
-│   ├── api-client/          # Bangumi 数据适配、校验、精选资料
-│   ├── feature-core/        # 发现与追番 hooks
+│   ├── source-engine/       # 来源契约、候选匹配；通用规则执行未实现
+│   ├── api-client/          # Bangumi / Hana API 客户端、校验、精选资料
+│   ├── feature-core/        # 发现、追番、播放编排与观看历史 hooks
 │   ├── player-contract/     # 跨端播放器契约
 │   ├── platform/            # 网络、存储、媒体资源契约
 │   ├── design-tokens/       # 跨端主题 token 与 Web CSS 变量

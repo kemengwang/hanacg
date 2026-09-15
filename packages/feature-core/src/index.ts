@@ -97,3 +97,6 @@ export function useSavedAnime(storage: KeyValueStorage) {
   }, [saved, storage]);
   return { saved, toggle, persistent };
 }
+
+export { usePlayback, type PlaybackSelection } from './playback';
+export { useWatchHistory, readHistory, type WatchEntry } from './history';

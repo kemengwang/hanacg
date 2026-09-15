@@ -28,7 +28,7 @@ export function AnimeCard({ anime, saved, onOpen, onToggleSave }: AnimeCardProps
       <div className="poster-wrap">
         <button
           className="poster-open"
-          aria-label={`查看${anime.title}详情`}
+          aria-label={`播放${anime.title}`}
           onClick={() => onOpen(anime)}
         >
           <Poster key={anime.cover} anime={anime} />

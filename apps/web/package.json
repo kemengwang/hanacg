@@ -9,18 +9,21 @@
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {
-    "@hanacg/domain": "workspace:*",
     "@hanacg/api-client": "workspace:*",
+    "@hanacg/design-tokens": "workspace:*",
+    "@hanacg/domain": "workspace:*",
     "@hanacg/feature-core": "workspace:*",
     "@hanacg/platform": "workspace:*",
-    "@hanacg/design-tokens": "workspace:*",
+    "@hanacg/player-contract": "workspace:*",
+    "@hanacg/source-engine": "workspace:*",
     "@hanacg/ui": "workspace:*",
+    "hls.js": "^1.7.3",
+    "lucide-react": "^0.577.0",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "lucide-react": "^0.577.0"
+    "react-dom": "^19.2.0"
   },
   "devDependencies": {
-    "vite": "^8.3.0",
-    "@vitejs/plugin-react": "^6.1.1"
+    "@vitejs/plugin-react": "^6.1.1",
+    "vite": "^8.3.0"
   }
 }

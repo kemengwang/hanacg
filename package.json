@@ -9,15 +9,17 @@
     "pnpm": ">=10"
   },
   "scripts": {
-    "dev": "pnpm --filter @hanacg/web dev",
-    "build": "pnpm --filter @hanacg/web build",
+    "dev": "pnpm --parallel --filter @hanacg/server --filter @hanacg/web dev",
+    "build": "pnpm --filter @hanacg/web build && pnpm --filter @hanacg/server build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "check": "pnpm typecheck && pnpm test && pnpm build",
-    "format": "prettier --write apps/web/src packages tests *.ts *.json",
-    "format:check": "prettier --check apps/web/src packages tests *.ts *.json"
+    "format": "prettier --write apps/web/src apps/server/src apps/server/*.json packages tests *.ts *.json",
+    "format:check": "prettier --check apps/web/src apps/server/src apps/server/*.json packages tests *.ts *.json",
+    "dev:web": "pnpm --filter @hanacg/web dev",
+    "dev:server": "pnpm --filter @hanacg/server dev"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",

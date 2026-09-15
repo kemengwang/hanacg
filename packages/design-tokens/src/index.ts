@@ -17,6 +17,7 @@ export const tokens = {
       accent: '#9bbcaf',
     },
   },
+  media: { canvas: '#101112', text: '#f5f5f6', muted: '#a0a2a7', border: '#45474a' },
   radius: { small: 6, control: 8, poster: 10, panel: 14 },
   layout: { sidebar: 232, collapsedSidebar: 72, maxContent: 1240 },
 } as const;

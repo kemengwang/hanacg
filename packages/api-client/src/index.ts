@@ -92,3 +92,11 @@ export function createBangumiRepository(
     },
   };
 }
+
+export {
+  createPlaybackRepository,
+  parseSourceResults,
+  parseLines,
+  parseMedia,
+  parseStoredAnime,
+} from './playback';

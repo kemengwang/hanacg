@@ -1,0 +1,26 @@
+{
+  "name": "@hanacg/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsup",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@fastify/rate-limit": "^11.2.0",
+    "@hanacg/api-client": "workspace:*",
+    "@hanacg/domain": "workspace:*",
+    "@hanacg/platform": "workspace:*",
+    "@hanacg/source-engine": "workspace:*",
+    "cheerio": "^1.2.0",
+    "fastify": "^5.12.4",
+    "ipaddr.js": "^2.5.0",
+    "undici": "^7.29.1"
+  },
+  "devDependencies": {
+    "tsup": "^8.5.1",
+    "tsx": "^4.23.13"
+  }
+}

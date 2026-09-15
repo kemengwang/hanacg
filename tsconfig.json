@@ -21,6 +21,7 @@
     "packages/*/src",
     "tests",
     "playwright.config.ts",
-    "vitest.config.ts"
+    "vitest.config.ts",
+    "apps/server/src"
   ]
 }

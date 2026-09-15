@@ -19,7 +19,7 @@ export const browserStorage: KeyValueStorage = {
 };
 export const browserNetwork: NetworkClient = {
   async json(url, options) {
-    const timeout = AbortSignal.timeout(10_000);
+    const timeout = AbortSignal.timeout(url.startsWith('/api/') ? 35_000 : 10_000);
     const signal = options?.signal ? AbortSignal.any([options.signal, timeout]) : timeout;
     const response = await fetch(url, {
       method: options?.method ?? 'GET',
