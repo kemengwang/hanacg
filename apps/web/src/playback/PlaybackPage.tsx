@@ -233,8 +233,9 @@ function WatchContent({
             >
               <input
                 aria-label="来源搜索关键词"
+                placeholder="番剧名或 Omofun 详情 / 播放链接"
                 value={keyword}
-                maxLength={120}
+                maxLength={200}
                 onChange={(e) => setKeyword(e.target.value)}
               />
               <button aria-label="搜索来源" type="submit">

@@ -11,18 +11,15 @@ import {
   CircleHelp,
   Compass,
   History,
-  Menu,
+  Tv,
   Monitor,
   Moon,
-  PanelLeftClose,
-  PanelLeftOpen,
   Plus,
   Search,
   Settings2,
   SlidersHorizontal,
   Sparkles,
   Sun,
-  X,
 } from 'lucide-react';
 import { AnimeCard, Button, EmptyState, Poster } from '@hanacg/ui';
 import { filterAnime, type Anime, type DiscoveryTab, type ThemePreference } from '@hanacg/domain';
@@ -31,6 +28,8 @@ import { useDiscovery, useSavedAnime, useWatchHistory } from '@hanacg/feature-co
 import { browserNetwork, browserStorage } from './platform';
 import { useTheme } from './theme';
 import { Modal } from './Modal';
+import { Topbar } from './Topbar';
+import { CatalogPage } from './catalog/CatalogPage';
 const PlaybackPage = lazy(() =>
   import('./playback/PlaybackPage').then((module) => ({ default: module.PlaybackPage })),
 );
@@ -48,7 +47,7 @@ const tabs: { id: DiscoveryTab; name: string }[] = [
   { id: 'calendar', name: '每日放送' },
   { id: 'ranking', name: '高分佳作' },
 ];
-type Page = 'discover' | 'saved' | 'history';
+type Page = 'discover' | 'anime' | 'saved' | 'history';
 const heroCopy = [
   {
     line: '在旅途的终点，重新出发。',
@@ -81,7 +80,12 @@ export function App() {
       browserStorage.getItem('hana:sidebar') === 'collapsed' ||
       matchMedia('(max-width: 760px)').matches,
   );
-  const [keyword, setKeyword] = useState('');
+  const keyword = page === 'anime' ? route.keyword : '';
+  function search(keyword: string) {
+    go(`/anime${keyword ? `?${new URLSearchParams({ q: keyword })}` : ''}`, page === 'anime');
+    contentRef.current?.scrollTo({ top: 0 });
+    if (matchMedia('(max-width: 760px)').matches) setCollapsed(true);
+  }
   const [genre, setGenre] = useState('全部');
   const [sort, setSort] = useState<'recommended' | 'score' | 'year'>('recommended');
   const [weekday, setWeekday] = useState(() => ((new Date().getDay() + 6) % 7) + 1);
@@ -118,7 +122,9 @@ export function App() {
         ? '我的追番'
         : page === 'history'
           ? '观看历史'
-          : '发现';
+          : page === 'anime'
+            ? '番剧'
+            : '发现';
   const showingHero = page === 'discover' && tab === 'recommended' && !keyword;
   const items = page === 'saved' ? saved : feed.items;
   const filtered = filterAnime(
@@ -135,7 +141,6 @@ export function App() {
   function navigate(nextPage: Page, nextTab: DiscoveryTab = 'recommended') {
     go(nextPage === 'discover' ? '/' : `/${nextPage}`);
     setTab(nextTab);
-    setKeyword('');
     setGenre('全部');
     setSort('recommended');
     setVisible(6);
@@ -166,7 +171,6 @@ export function App() {
       if (document.querySelector('dialog[open]')) return;
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
-        navigate('discover');
         requestAnimationFrame(() => searchRef.current?.focus());
       }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'b') {
@@ -190,6 +194,16 @@ export function App() {
       >
         跳到主要内容
       </a>
+      <Topbar
+        collapsed={collapsed}
+        onToggleSidebar={() => setCollapsed((value) => !value)}
+        onHome={() => navigate('discover')}
+        keyword={keyword}
+        onSearch={search}
+        searchRef={searchRef}
+        dark={resolved === 'dark'}
+        onToggleTheme={() => setTheme(resolved === 'dark' ? 'light' : 'dark')}
+      />
       {!collapsed && (
         <button
           className="sidebar-scrim"
@@ -198,37 +212,6 @@ export function App() {
         />
       )}
       <aside className={`sidebar ${collapsed ? 'is-collapsed' : ''}`} aria-label="主导航">
-        <div className="brand-row">
-          <button className="brand" onClick={() => navigate('discover')} aria-label="Hana ACG 首页">
-            <span className="brand-mark">
-              h<span>✳</span>
-            </span>
-            <span className="brand-label">
-              Hana <span>ACG</span>
-            </span>
-          </button>
-          <button
-            className="icon-button sidebar-toggle"
-            aria-label={collapsed ? '展开导航栏' : '收起导航栏'}
-            aria-expanded={!collapsed}
-            title={collapsed ? '展开导航栏' : '收起导航栏'}
-            onClick={() => setCollapsed(!collapsed)}
-          >
-            {collapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}
-          </button>
-        </div>
-        <button
-          className="sidebar-search"
-          title="搜索番剧"
-          onClick={() => {
-            navigate('discover');
-            requestAnimationFrame(() => searchRef.current?.focus());
-          }}
-        >
-          <Search size={17} />
-          <span>搜索番剧</span>
-          <kbd>⌘ K</kbd>
-        </button>
         <div className="nav-group">
           <p className="nav-caption">探索</p>
           <button
@@ -240,6 +223,15 @@ export function App() {
             <Compass size={18} />
             <span>发现</span>
             <span className="nav-dot" />
+          </button>
+          <button
+            className={`nav-item ${page === 'anime' ? 'active' : ''}`}
+            aria-current={page === 'anime' ? 'page' : undefined}
+            title="番剧"
+            onClick={() => navigate('anime')}
+          >
+            <Tv size={18} />
+            <span>番剧</span>
           </button>
           <button
             className={`nav-item ${page === 'discover' && tab === 'calendar' ? 'active' : ''}`}
@@ -302,36 +294,6 @@ export function App() {
       </aside>
 
       <div className="workspace">
-        <header className="topbar">
-          <div className="breadcrumb">
-            <button
-              className="icon-button mobile-menu"
-              aria-label="展开导航栏"
-              onClick={() => setCollapsed(false)}
-            >
-              <Menu size={19} />
-            </button>
-            <span>Hana ACG</span>
-            <ChevronRight size={12} />
-            <strong>{title}</strong>
-          </div>
-          <div className="topbar-actions">
-            <span className="local-mode">
-              <span />
-              自己的追番时光
-            </span>
-            <span className="topbar-divider" />
-            <button
-              className="icon-button"
-              aria-label={resolved === 'dark' ? '切换到亮色模式' : '切换到暗色模式'}
-              title={resolved === 'dark' ? '亮色模式' : '暗色模式'}
-              onClick={() => setTheme(resolved === 'dark' ? 'light' : 'dark')}
-            >
-              {resolved === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-            </button>
-          </div>
-        </header>
-
         <main id="main-content" tabIndex={-1} ref={contentRef} className="main-scroll">
           <div className="content">
             {page === 'watch' && route.animeId ? (
@@ -348,6 +310,17 @@ export function App() {
                   persistent={historyPersistent}
                 />
               </Suspense>
+            ) : page === 'anime' ? (
+              <CatalogPage
+                key={keyword}
+                repository={repository}
+                keyword={keyword}
+                saved={saved}
+                onOpen={openAnime}
+                onToggleSave={toggleSaved}
+                onClearSearch={() => search('')}
+                persistent={persistent}
+              />
             ) : (
               <>
                 <div className="page-heading">
@@ -361,32 +334,6 @@ export function App() {
                           : '每一段旅程，都值得记得。'}
                     </p>
                   </div>
-                  {page !== 'history' && (
-                    <div className="search-field">
-                      <Search size={16} />
-                      <input
-                        ref={searchRef}
-                        aria-label={page === 'saved' ? '搜索我的追番' : '搜索番剧'}
-                        placeholder={page === 'saved' ? '搜索我的追番…' : '搜索番剧、关键词…'}
-                        value={keyword}
-                        onChange={(event) => {
-                          setKeyword(event.target.value);
-                          setGenre('全部');
-                        }}
-                      />
-                      {keyword ? (
-                        <button
-                          className="icon-button"
-                          aria-label="清空搜索"
-                          onClick={() => setKeyword('')}
-                        >
-                          <X size={14} />
-                        </button>
-                      ) : (
-                        <kbd>⌘ K</kbd>
-                      )}
-                    </div>
-                  )}
                 </div>
 
                 {page === 'discover' && (
@@ -699,7 +646,6 @@ export function App() {
                                   if ((page === 'saved' && !saved.length) || tab === 'calendar')
                                     navigate('discover');
                                   else {
-                                    setKeyword('');
                                     setGenre('全部');
                                   }
                                 }}

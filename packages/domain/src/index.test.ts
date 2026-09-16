@@ -33,4 +33,24 @@ describe('discovery filtering', () => {
     ).toEqual([2, 1, 3]);
     expect(items.map((a) => a.id)).toEqual([1, 2, 3]);
   });
+  it('combines catalog filters and excludes unknown dates or scores only when requested', () => {
+    const catalog = [
+      { ...items[0]!, airDate: '2023-04-01' },
+      { ...items[1]!, airDate: '2023-10-01' },
+      { ...items[2]!, year: 0, airDate: '', score: 0 },
+    ];
+    const query = {
+      keyword: '',
+      genre: '全部',
+      sort: 'score' as const,
+      year: 2023,
+      season: 2,
+      minScore: 8,
+    };
+    expect(filterAnime(catalog, query).map((item) => item.id)).toEqual([1]);
+    expect(filterAnime(catalog, { ...query, genre: '冒险' })).toEqual([]);
+    expect(filterAnime(catalog, { ...query, season: 4 }).map((item) => item.id)).toEqual([2]);
+    expect(filterAnime(catalog, { ...query, year: 0, season: 0, minScore: 0 })).toHaveLength(3);
+    expect(filterAnime([{ ...catalog[0]!, airDate: '2023-00-01' }], query)).toEqual([]);
+  });
 });

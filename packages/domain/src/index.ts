@@ -19,6 +19,9 @@ export interface DiscoveryQuery {
   keyword: string;
   genre: string;
   sort: 'recommended' | 'score' | 'year';
+  year?: number;
+  season?: number;
+  minScore?: number;
 }
 export interface AnimeCardProps {
   anime: Anime;
@@ -37,7 +40,12 @@ export function filterAnime(items: readonly Anime[], query: DiscoveryQuery): Ani
           .normalize('NFKC')
           .toLocaleLowerCase()
           .includes(keyword)) &&
-      (query.genre === '全部' || anime.tags.includes(query.genre)),
+      (query.genre === '全部' || anime.tags.includes(query.genre)) &&
+      (!query.year || anime.year === query.year) &&
+      (!query.minScore || anime.score >= query.minScore) &&
+      (!query.season ||
+        (/^\d{4}-(0[1-9]|1[0-2])-\d{2}$/.test(anime.airDate) &&
+          Math.ceil(Number(anime.airDate.slice(5, 7)) / 3) === query.season)),
   );
   if (query.sort === 'score') results.sort((a, b) => b.score - a.score);
   if (query.sort === 'year') results.sort((a, b) => b.year - a.year);

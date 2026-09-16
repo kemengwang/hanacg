@@ -49,7 +49,9 @@ svg {
 }
 .app {
   height: 100dvh;
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: 68px minmax(0, 1fr);
   overflow: hidden;
 }
 .skip-link {
@@ -86,20 +88,13 @@ svg {
   flex-shrink: 0;
   background: var(--sidebar);
   border-right: 1px solid var(--border);
-  padding: 22px 13px 0;
+  padding: 0 13px;
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   transition: width 0.18s ease;
-  overflow: hidden;
   z-index: 20;
-}
-.brand-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 7px;
-  height: 32px;
-  margin-bottom: 29px;
 }
 .brand {
   display: flex;
@@ -139,24 +134,6 @@ svg {
   color: var(--muted);
   margin-left: 3px;
 }
-.sidebar-search {
-  min-height: 37px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 0 11px;
-  background: var(--canvas);
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  font-size: 12px;
-  color: var(--muted);
-  white-space: nowrap;
-  text-align: left;
-}
-.sidebar-search:hover {
-  border-color: var(--muted);
-}
 kbd {
   font: inherit;
   font-size: 10px;
@@ -165,11 +142,6 @@ kbd {
   padding: 2px 4px;
   border-radius: 4px;
   white-space: nowrap;
-}
-.sidebar-search kbd {
-  margin-left: auto;
-  font-size: 9px;
-  padding: 1px 3px;
 }
 .nav-group {
   margin-top: 29px;
@@ -293,25 +265,13 @@ kbd {
   width: 72px;
   padding-inline: 12px;
 }
-.is-collapsed .brand-label,
-.is-collapsed .brand,
 .is-collapsed .nav-item > span,
 .is-collapsed .nav-end,
 .is-collapsed .nav-caption,
-.is-collapsed .sidebar-search > span,
-.is-collapsed .sidebar-search kbd,
 .is-collapsed .little-note,
 .is-collapsed .profile > div,
 .is-collapsed .local-dot {
   display: none;
-}
-.is-collapsed .brand-row {
-  justify-content: center;
-  padding: 0;
-}
-.is-collapsed .sidebar-search {
-  justify-content: center;
-  padding: 0;
 }
 .is-collapsed .nav-item {
   justify-content: center;
@@ -322,55 +282,32 @@ kbd {
   justify-content: center;
 }
 .workspace {
-  flex: 1;
+  min-height: 0;
   min-width: 0;
   display: flex;
   flex-direction: column;
 }
 .topbar {
-  height: 63px;
-  flex-shrink: 0;
+  grid-column: 1 / -1;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 35px;
+  padding: 0 28px 0 20px;
   border-bottom: 1px solid var(--border);
-  gap: 15px;
+  background: var(--canvas);
+  gap: 22px;
+  z-index: 30;
 }
-.breadcrumb {
+.topbar-brand {
   display: flex;
   align-items: center;
-  gap: 13px;
-  font-size: 11px;
-  color: var(--muted);
-  white-space: nowrap;
+  gap: 22px;
+  flex-shrink: 0;
 }
-.breadcrumb strong {
-  color: var(--text);
-  font-weight: 500;
-}
-.topbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-}
-.local-mode {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 10px;
-  color: var(--muted);
-}
-.local-mode > span {
-  width: 5px;
-  height: 5px;
-  background: var(--accent);
-  border-radius: 50%;
-}
-.topbar-divider {
-  height: 15px;
-  width: 1px;
-  background: var(--border);
+.topbar .topbar-search {
+  width: clamp(260px, 32vw, 480px);
+  height: 38px;
+  margin-left: auto;
+  background: var(--surface);
 }
 .main-scroll {
   flex: 1;
@@ -1115,7 +1052,6 @@ kbd {
   opacity: 1;
   transform: translateX(-50%);
 }
-.mobile-menu,
 .sidebar-scrim {
   display: none;
 }
@@ -1210,7 +1146,7 @@ kbd {
 @media (max-width: 760px) {
   .sidebar {
     position: fixed;
-    inset: 0 auto 0 0;
+    inset: 68px auto 0 0;
     width: 232px;
     box-shadow: var(--shadow);
   }
@@ -1221,28 +1157,33 @@ kbd {
   }
   .sidebar-scrim {
     position: fixed;
-    inset: 0;
+    inset: 68px 0 0;
     z-index: 15;
     display: block;
     background: #0005;
     border: 0;
   }
-  .mobile-menu {
-    display: inline-flex;
+  .app {
+    grid-template-columns: minmax(0, 1fr);
   }
   .topbar {
-    height: 55px;
-    padding: 0 17px;
+    padding: 0 12px;
+    gap: 10px;
   }
-  .breadcrumb {
-    gap: 8px;
+  .topbar-brand {
+    gap: 10px;
   }
-  .local-mode,
-  .topbar-divider {
+  .topbar .brand-label {
     display: none;
   }
-  .topbar-actions {
-    gap: 0;
+  .topbar .topbar-search {
+    width: auto;
+    min-width: 0;
+    flex: 1;
+    margin-left: 6px;
+  }
+  .topbar-search kbd {
+    display: none;
   }
   .content {
     padding: 27px 20px 0;

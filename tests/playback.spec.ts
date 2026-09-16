@@ -238,3 +238,63 @@ test('late media resolution cannot restore a video after switching sources', asy
   await expect(page.locator('video')).toHaveCount(0);
   await expect(page).not.toHaveURL(/episode=a1/);
 });
+
+test('Omofun verification recovery, four independent lines and refresh restoration', async ({
+  page,
+}) => {
+  const subjectId = '23b9ad4de769c3868cf4f0b3';
+  const source = { id: 'omofun', name: 'Omofun', homepage: 'https://www.omofuna.com' };
+  const url = `${source.homepage}/anime/${subjectId}.html`;
+  const match = { sourceId: source.id, subjectId, title, url, matchedBy: 'candidate' };
+  const lines = [
+    ['2', '天堂'],
+    ['1', '精品'],
+    ['3', '暴风'],
+    ['4', '量子'],
+  ].map(([id, name]) => ({ id, name, episodes: [{ id: `${id}-1`, title: '第01集', number: 1 }] }));
+  let restored = false;
+  await page.route('**/api/playback/search?**', (route) => {
+    const params = new URL(route.request().url()).searchParams;
+    restored =
+      params.get('preferredSourceId') === 'omofun' &&
+      params.get('preferredSubjectId') === subjectId;
+    const manual = params.get('title') === url;
+    return route.fulfill({
+      json: {
+        results: [
+          {
+            source,
+            matches: restored || manual ? [match] : [],
+            ...(restored || manual
+              ? {}
+              : { error: 'Omofun 搜索需要网页验证，可在来源搜索框粘贴该站的番剧详情或播放链接。' }),
+          },
+        ],
+      },
+    });
+  });
+  await page.route('**/api/playback/episodes?**', (route) => route.fulfill({ json: { lines } }));
+  await page.goto('/#/watch/400602');
+  await expect(page.getByText(/Omofun 搜索需要网页验证/)).toBeVisible();
+  await page.getByRole('textbox', { name: '来源搜索关键词' }).fill(url);
+  await page.getByRole('button', { name: '搜索来源', exact: true }).click();
+  await page.locator('.source-option').click();
+  for (const line of lines) {
+    await page.getByRole('button', { name: line.name, exact: true }).click();
+    await expect(page.locator('video')).toHaveCount(0);
+    await page.getByRole('button', { name: '第01集', exact: true }).click();
+    await expect(page.locator('video')).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`line=${line.id}&episode=${line.id}-1`));
+  }
+  await page.reload();
+  await expect(page.locator('video')).toBeVisible();
+  expect(restored).toBe(true);
+  await expect(page.getByRole('button', { name: '量子', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await expect(page.getByRole('button', { name: '第01集', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+});

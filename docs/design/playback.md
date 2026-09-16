@@ -29,9 +29,18 @@
 | ------------------ | ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 稀饭动漫           | 搜索、详情公开序列化数据解析、默认原生 HLS 分集、播放地址签发                                  | 当前适配 `xfy*` 线路对应的默认 HLS；不将外部备用线路伪装为同一地址。发布 key 来自站点公开客户端，不是 service-role 密钥；站点变更可能需要更新适配器 |
 | Anime7             | suggest 搜索、HTML 线路/分集、`player_aaaa` JSON 和 URL/base64 编码解析，支持直接 HLS/MP4/WebM | 不执行 JS 嗅探或额外解析站；部分媒体 CDN 存在地区限制                                                                                               |
+| Omofun | 站内关键词搜索、详情 / 播放链接导入；天堂、精品、暴风、量子独立分集；天堂 / 暴风 / 量子直接 HLS，精品使用公开播放器数据的 AES-CBC 解码返回 MP4 | 搜索可能要求网页验证，显示明确提示并允许粘贴该站链接；不自动解验证码或执行第三方脚本。解析成功不代表上游媒体始终可播 |
 | TvTFun（默认关闭） | 搜索、线路/分集与旧版 resolve 流程的适配代码                                                   | 实测播放凭证要求已变更，当前不能确认可播；仅进一步调试时用 `HANA_ENABLE_TVTFUN=1`，不作为默认可用来源                                               |
 
 适配依据来自只读参考规则和实际公开响应；未修改参考项目。来源可能随时间、地区和上游策略变化；某集成功不代表全站可用。失败不回退到测试视频或虚构结果。候选标题保留，用户可修改关键词重新搜索；带元数据 ID 的结果必须 ID 相同才算精确匹配，同名但不同 ID 仍为候选。
+
+### Omofun 接入与恢复
+
+注册一个 `omofun` 站点来源，使用 `https://www.omofuna.com` 的详情目录；四条线路的 ID 从详情链接提取，不假设天堂永远是第 1 条。分集 ID 包含线路 ID，过滤其他作品与其他线路的链接；解析再次核对 `player_aaaa` 的作品、线路与分集身份。
+
+播放页的来源搜索框可输入番剧名或本站详情 / 播放链接。链接只接受固定站点及合法路径，并作为候选供用户确认，不把来源 ID 当作 Bangumi ID。已选条目的来源 / 条目 ID 会随首次恢复搜索发送，Omofun 直接读取该详情，避免刷新、观看历史恢复依赖受限的关键词搜索。用户主动重新搜索后清除恢复偏好。
+
+精品线路使用固定 `https://art.v2player.top:8989/player/` 解析入口，读取公开 `playData` 数据并由 Node crypto 解码；公开客户端的固定 AES 参数不是服务密钥。Hana 不嵌入外站 iframe，不运行抓取到的 JS，不持久化临时媒体地址。
 
 ## API
 
@@ -40,14 +49,14 @@
 | GET `/api/health`            | —                                      | 服务状态                                           |
 | GET `/api/sources`           | —                                      | 注册来源信息                                       |
 | GET `/api/anime/:id`         | Bangumi ID                             | 校验后的 Anime；本地精选标记 snapshot，其他 online |
-| GET `/api/playback/search`   | animeId、title、originalTitle          | 每个来源的候选及独立错误；某源失败保留其他结果     |
+| GET `/api/playback/search`   | animeId、title、originalTitle；可选 preferredSourceId / preferredSubjectId | 每个来源的候选及独立错误；某源失败保留其他结果     |
 | GET `/api/playback/episodes` | sourceId、subjectId                    | 此条目的线路与各线路分集                           |
 | GET `/api/playback/resolve`  | sourceId、subjectId、lineId、episodeId | 校验分集归属后返回临时媒体票据地址                 |
 | GET `/api/media/:token`      | 已签发的票据；可带单区间 Range         | HLS 清单、子清单、密钥/初始化片段或视频流          |
 
 API 请求有参数校验、速率限制、超时和客户端断开取消。分集缓存 5 分钟，最多 128 条。解析不缓存签名地址，以便重新解析恢复过期资源。媒体票据内存保存，最长 6 小时、最多 20,000 个；服务重启使票据失效，可重新解析。上游签名可能更早过期，页面提供重新解析。
 
-媒体接口不接受任意 URL，仅使用 adapter 签发的随机票据。连接时检查 DNS 公网地址，重定向逐跳检查；拒绝内网、凭证 URL、非 HTTP(S) 和非常规端口。HLS 重写主/子清单、分片、KEY、MAP、MEDIA 等 URI，跨域子资源不继承 Cookie/Authorization/apikey。Range、Content-Range、Content-Length 按流转发，媒体错误不产生伪造文件。没有转码、DRM 或验证码自动化支持。
+媒体接口不接受任意 URL，仅使用 adapter 签发的随机票据。连接时检查 DNS 公网地址，重定向逐跳检查；拒绝内网、凭证 URL、非 HTTP(S) 和非常规端口。仅 Omofun 精品解析专用网络宿主允许精确的 `https://art.v2player.top:8989` 来源，重定向仍逐跳检查 DNS 和目标；该例外不传给媒体票据或媒体网关。HLS 重写主/子清单、分片、KEY、MAP、MEDIA 等 URI，跨域子资源不继承 Cookie/Authorization/apikey。Range、Content-Range、Content-Length 按流转发，媒体错误不产生伪造文件。没有转码、DRM 或验证码自动化支持。
 
 ## 运行与部署
 
@@ -74,6 +83,10 @@ hash 查询参数 source/subject/line/episode 标识当前选择，不含播放 
 
 - `pnpm check`：Web/服务端与共享包类型检查、来源/网络/网关/历史单测和两端构建。
 - `pnpm test:e2e`：Chrome 中受控 API、浏览器生成 WebM 的实际解码/播放、换源、换线路、下一集、失败/空态、取消过期响应、历史与刷新、亮暗和窄屏截图。测试视频仅存在于测试拦截器。
+- `pnpm --filter @hanacg/server exec tsx ../../scripts/verify-live-omofun.mjs`：独立临时 Fastify 服务 + Chrome 验证 Omofun 四路真实媒体，不写观看记录。默认验证用户提供的史莱姆第四季第 16 集；可用 `OMOFUN_URL` / `OMOFUN_EPISODE` 更换样本；本机 Fake-IP 环境需要显式 `HANA_FAKE_IP_DNS=1`。
 - `node scripts/verify-live-playback.mjs`：开发服务运行后显式执行真实来源冒烟，验证指定分集的画面和进度；不纳入离线 CI。
 
 2026-09-15 的真实验证：稀饭动漫《葬送的芙莉莲》第 1 集经 Fastify → HLS.js 在 Chrome 播放，画面尺寸非零、播放进度超过 2 秒、时长约 1561 秒，无页面脚本错误；主/子清单均重写成功，分片 Range 返回 206。Anime7 搜索、分集与地址解析成功，但测试媒体 CDN 对当前出口返回地区限制；TvTFun 搜索/分集成功，解析返回凭证错误。真实结果与受控测试分别报告。
+
+
+2026-09-16 的 Omofun 真实验证：用户提供的《关于我转生变成史莱姆这档事第四季》第 16 集，天堂、精品、暴风、量子均经独立 Fastify 媒体网关与 Chrome 实际解码播放超过 2 秒，画面均为 1920×1080；时长分别约 1470 / 1440 / 1477 / 1477 秒，无媒体 HTTP 失败。第一次请求详情发生上游超时，间隔后重试成功；不代表任意时间和全部作品均可用。站内关键词搜索本次遇到网页验证，详情 / 播放链接导入与已选条目恢复不依赖该搜索页。受控验证另有 35 项单测与 18 项浏览器交互测试通过。

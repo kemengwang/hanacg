@@ -61,7 +61,17 @@ export function usePlayback(
     setResults([]);
     repository
       .search(
-        { animeId: anime.id, title: query, originalTitle: anime.originalTitle },
+        {
+          animeId: anime.id,
+          title: query,
+          originalTitle: anime.originalTitle,
+          ...(initialRef.current
+            ? {
+                preferredSourceId: initialRef.current.sourceId,
+                preferredSubjectId: initialRef.current.subjectId,
+              }
+            : {}),
+        },
         controller.signal,
       )
       .then((results) => {
@@ -177,6 +187,7 @@ export function usePlayback(
       if (match) selectMatch(match);
     },
     search(title = query) {
+      initialRef.current = undefined;
       episodeAbort.current?.abort();
       clearMedia();
       setMatch(undefined);

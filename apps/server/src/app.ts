@@ -3,7 +3,8 @@ import rateLimit from '@fastify/rate-limit';
 import { Readable } from 'node:stream';
 import { curatedAnime, parseAnime } from '@hanacg/api-client';
 import type { SourceAdapter, SourceLine, SourceQuery } from '@hanacg/source-engine';
-import { sourceHost, upstream, boundedText } from './network';
+import { sourceHost, createSourceHost, upstream, boundedText } from './network';
+import { createOmofun, omofunPlayerOrigin, OmofunSearchVerificationError } from './omofun';
 import { createAnime7, createTvt } from './sources';
 import { createXifan } from './xifan';
 import { MediaTickets, rewritePlaylist } from './media';
@@ -20,6 +21,7 @@ export function buildServer(
   adapters: SourceAdapter[] = [
     createXifan(sourceHost),
     createAnime7(sourceHost),
+    createOmofun(sourceHost, createSourceHost([omofunPlayerOrigin])),
     ...(process.env.HANA_ENABLE_TVTFUN === '1' ? [createTvt(sourceHost)] : []),
   ],
   logger = false,
@@ -100,6 +102,8 @@ export function buildServer(
             animeId: { type: 'integer', minimum: 1 },
             title: text,
             originalTitle: { type: 'string', maxLength: 200 },
+            preferredSourceId: text,
+            preferredSubjectId: text,
           },
           ['animeId', 'title'],
         ),
@@ -116,11 +120,14 @@ export function buildServer(
                 signals.get(request),
               ),
             };
-          } catch {
+          } catch (error) {
             return {
               source: a.info,
               matches: [],
-              error: '暂时无法连接此来源，可重试或选择其他来源',
+              error:
+                error instanceof OmofunSearchVerificationError
+                  ? error.message
+                  : '暂时无法连接此来源，可重试或选择其他来源',
             };
           }
         }),

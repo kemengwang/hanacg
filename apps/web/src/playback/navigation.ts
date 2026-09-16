@@ -10,7 +10,10 @@ export function readRoute() {
         ? 'saved'
         : path === '/history'
           ? 'history'
-          : 'discover',
+          : path === '/anime'
+            ? 'anime'
+            : 'discover',
+    keyword: new URLSearchParams(window.location.hash.split('?')[1] || '').get('q') || '',
     animeId: match ? Number(match[1]) : undefined,
   } as const;
 }
@@ -23,8 +26,9 @@ export function useNavigation() {
   }, []);
   return {
     route,
-    go(path: string) {
-      window.location.hash = path;
+    go(path: string, replace = false) {
+      if (replace) window.history.replaceState(null, '', `#${path}`);
+      else window.location.hash = path;
       setRoute(readRoute());
     },
   };

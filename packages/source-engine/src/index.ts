@@ -32,6 +32,9 @@ export interface SourceQuery {
   animeId: number;
   title: string;
   originalTitle: string;
+  /** Previously selected entry; adapters may retrieve it without repeating keyword search. */
+  preferredSourceId?: string;
+  preferredSubjectId?: string;
 }
 export interface SourceAdapter {
   readonly info: SourceInfo;

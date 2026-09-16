@@ -11,13 +11,15 @@ export function isPublicAddress(address: string): boolean {
     return false;
   }
 }
-export function checkedUrl(value: string): URL {
+export function checkedUrl(value: string, allowedNonstandardOrigins: readonly string[] = []): URL {
   const url = new URL(value);
   if (
     !['https:', 'http:'].includes(url.protocol) ||
     url.username ||
     url.password ||
-    (url.port && !['80', '443'].includes(url.port))
+    (url.port &&
+      !['80', '443'].includes(url.port) &&
+      !allowedNonstandardOrigins.includes(url.origin))
   )
     throw new Error('不支持的来源地址');
   const host = url.hostname.replace(/^\[|\]$/g, '');
@@ -71,8 +73,9 @@ export async function upstream(
   headers: Record<string, string> = {},
   body?: string,
   transport: Dispatcher = dispatcher,
+  allowedNonstandardOrigins: readonly string[] = [],
 ): Promise<UpstreamResponse> {
-  let url = checkedUrl(value);
+  let url = checkedUrl(value, allowedNonstandardOrigins);
   let outgoing = { ...headers };
   let requestBody = body;
   for (let hop = 0; hop < 5; hop++) {
@@ -92,7 +95,7 @@ export async function upstream(
       response.body.destroy();
       const location = response.headers.location;
       if (typeof location !== 'string') throw new Error('来源重定向异常');
-      const next = checkedUrl(new URL(location, url).href);
+      const next = checkedUrl(new URL(location, url).href, allowedNonstandardOrigins);
       if (next.origin !== url.origin) {
         outgoing = Object.fromEntries(
           Object.entries(outgoing).filter(
@@ -121,45 +124,53 @@ export async function boundedText(
   }
   return Buffer.concat(chunks).toString('utf8');
 }
-export const sourceHost: SourceHost = {
-  async post(url, body, signal, headers) {
-    const response = await upstream(
-      url,
-      AbortSignal.any([AbortSignal.timeout(18_000), ...(signal ? [signal] : [])]),
-      { ...headers, 'Content-Type': 'application/json' },
-      JSON.stringify(body),
-    );
-    if (response.statusCode !== 200) {
-      response.body.destroy();
-      throw new Error(`来源暂时不可用（${response.statusCode}）`);
-    }
-    try {
-      return JSON.parse(await boundedText(response.body)) as unknown;
-    } catch {
-      throw new Error('来源返回了异常数据');
-    }
-  },
-  async text(url, signal, headers) {
-    const response = await upstream(
-      url,
-      AbortSignal.any([AbortSignal.timeout(18_000), ...(signal ? [signal] : [])]),
-      headers,
-    );
-    if (response.statusCode !== 200) {
-      response.body.destroy();
-      throw new Error(`来源暂时不可用（${response.statusCode}）`);
-    }
-    return boundedText(response.body);
-  },
-  async json(url, signal, headers) {
-    const text = await this.text(url, signal, headers);
-    try {
-      return JSON.parse(text) as unknown;
-    } catch {
-      throw new Error('来源返回了验证页面或异常数据，请切换来源');
-    }
-  },
-};
+export function createSourceHost(allowedNonstandardOrigins: readonly string[] = []): SourceHost {
+  return {
+    async post(url, body, signal, headers) {
+      const response = await upstream(
+        url,
+        AbortSignal.any([AbortSignal.timeout(18_000), ...(signal ? [signal] : [])]),
+        { ...headers, 'Content-Type': 'application/json' },
+        JSON.stringify(body),
+        dispatcher,
+        allowedNonstandardOrigins,
+      );
+      if (response.statusCode !== 200) {
+        response.body.destroy();
+        throw new Error(`来源暂时不可用（${response.statusCode}）`);
+      }
+      try {
+        return JSON.parse(await boundedText(response.body)) as unknown;
+      } catch {
+        throw new Error('来源返回了异常数据');
+      }
+    },
+    async text(url, signal, headers) {
+      const response = await upstream(
+        url,
+        AbortSignal.any([AbortSignal.timeout(18_000), ...(signal ? [signal] : [])]),
+        headers,
+        undefined,
+        dispatcher,
+        allowedNonstandardOrigins,
+      );
+      if (response.statusCode !== 200) {
+        response.body.destroy();
+        throw new Error(`来源暂时不可用（${response.statusCode}）`);
+      }
+      return boundedText(response.body);
+    },
+    async json(url, signal, headers) {
+      const text = await this.text(url, signal, headers);
+      try {
+        return JSON.parse(text) as unknown;
+      } catch {
+        throw new Error('来源返回了验证页面或异常数据，请切换来源');
+      }
+    },
+  };
+}
+export const sourceHost = createSourceHost();
 
 export async function closeNetwork() {
   await dispatcher.destroy();

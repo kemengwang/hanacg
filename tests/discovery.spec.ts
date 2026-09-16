@@ -44,7 +44,7 @@ test('theme and sidebar persist, theme can follow OS changes', async ({ page }) 
   await page.goto('/');
   await page.getByRole('button', { name: '切换到暗色模式' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-  await page.getByRole('button', { name: '收起导航栏', exact: true }).last().click();
+  await page.locator('.topbar').getByRole('button', { name: '收起导航栏', exact: true }).click();
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await expect(page.locator('.sidebar')).toHaveClass(/is-collapsed/);
@@ -59,12 +59,19 @@ test('online search renders metadata, clears, and handles empty results', async 
   await page.goto('/');
   const input = page.getByRole('textbox', { name: '搜索番剧', exact: true });
   await input.fill('测试');
+  await expect(page).toHaveURL(/#\/anime\?q=/);
+  await expect(page.getByRole('heading', { name: '番剧', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '番剧', exact: true })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
   await expect(page.locator('.card-title')).toHaveText(['测试番剧']);
   await page.route('https://api.bgm.tv/**', (route) => route.fulfill({ json: { data: [] } }));
   await input.fill('没有这部番');
   await expect(page.getByText('还没有找到这部番剧')).toBeVisible();
   await page.getByRole('button', { name: '清空搜索' }).click();
-  await expect(page.locator('.hero')).toBeVisible();
+  await expect(page).toHaveURL(/#\/anime$/);
+  await expect(page.getByRole('group', { name: '风格' })).toBeVisible();
 });
 
 test('calendar changes weekdays and never fabricates an offline schedule', async ({ page }) => {
@@ -128,7 +135,7 @@ test('mobile drawer, dialog keyboard behavior and no horizontal overflow', async
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await page.getByRole('button', { name: '收起导航栏', exact: true }).last().click();
+  await page.locator('.topbar').getByRole('button', { name: '收起导航栏', exact: true }).click();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
@@ -153,4 +160,102 @@ test('captures light and dark desktop, bundled artwork loads', async ({ page }) 
   await page.screenshot({ path: 'test-results/discovery-light.png', fullPage: true });
   await page.getByRole('button', { name: '切换到暗色模式' }).click();
   await page.screenshot({ path: 'test-results/discovery-dark.png', fullPage: true });
+});
+
+test('catalog combines filters, resets, and opens playable details', async ({ page }) => {
+  await page.route('https://api.bgm.tv/**', (route) =>
+    route.fulfill({
+      json: {
+        data: [
+          subject,
+          {
+            ...subject,
+            id: 501,
+            name_cn: '春日故事',
+            date: '2025-04-01',
+            rating: { score: 9 },
+            tags: [{ name: '日常' }],
+          },
+          { ...subject, id: 502, name_cn: '夏日奇幻', rating: { score: 7 } },
+        ],
+      },
+    }),
+  );
+  await page.goto('/');
+  await expect(page.locator('.sidebar .brand, .sidebar input, .sidebar-search')).toHaveCount(0);
+  await page.getByRole('button', { name: '番剧', exact: true }).click();
+  await expect(page.locator('.anime-card')).toHaveCount(3);
+  await page
+    .getByRole('group', { name: '风格' })
+    .getByRole('button', { name: '奇幻', exact: true })
+    .click();
+  await page.getByRole('button', { name: '2026', exact: true }).click();
+  await page.getByRole('button', { name: '7–9 月', exact: true }).click();
+  await page.getByRole('button', { name: '8 分及以上', exact: true }).click();
+  await expect(page.locator('.card-title')).toHaveText(['测试番剧']);
+  await page.getByRole('button', { name: '9 分及以上', exact: true }).click();
+  await expect(page.getByText('还没有找到这部番剧')).toBeVisible();
+  await page.getByRole('button', { name: '重置筛选', exact: true }).click();
+  await page.getByRole('button', { name: '最高评分', exact: true }).click();
+  await expect(page.locator('.card-title')).toHaveText(['春日故事', '测试番剧', '夏日奇幻']);
+  await page.locator('.card-title').first().click();
+  await expect(page).toHaveURL(/#\/watch\/501/);
+  await expect(page.getByRole('heading', { name: '春日故事', exact: true })).toBeVisible();
+});
+
+test('global search works from the library, survives reload and supports browser back', async ({
+  page,
+}) => {
+  await page.goto('/#/saved');
+  await page.keyboard.press('Control+k');
+  const input = page.getByRole('textbox', { name: '搜索番剧', exact: true });
+  await expect(input).toBeFocused();
+  await input.fill('测试');
+  await expect(page.locator('.card-title')).toHaveText(['测试番剧']);
+  await page.reload();
+  await expect(input).toHaveValue('测试');
+  await expect(page.locator('.card-title')).toHaveText(['测试番剧']);
+  await page.goBack();
+  await expect(page).toHaveURL(/#\/saved$/);
+  await expect(page.getByRole('heading', { name: '我的追番', exact: true })).toBeVisible();
+});
+
+test('catalog topbar stays visible, light and dark layouts fit desktop and mobile', async ({
+  page,
+}) => {
+  await page.route('https://api.bgm.tv/**', (route) => route.abort());
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.goto('/#/anime');
+  await expect(page.locator('.anime-card')).toHaveCount(11);
+  await page.screenshot({ path: 'test-results/catalog-light.png' });
+  const before = await page.locator('.topbar').boundingBox();
+  await page.locator('.main-scroll').evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+  expect(
+    await page.locator('.main-scroll').evaluate((element) => element.scrollTop),
+  ).toBeGreaterThan(0);
+  expect(await page.locator('.topbar').boundingBox()).toEqual(before);
+  await expect(page.getByRole('textbox', { name: '搜索番剧', exact: true })).toBeVisible();
+  await page.locator('.main-scroll').evaluate((element) => {
+    element.scrollTop = 0;
+  });
+  await page.getByRole('button', { name: '切换到暗色模式' }).click();
+  await page.screenshot({ path: 'test-results/catalog-dark.png' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  await expect(page.locator('.sidebar')).not.toBeVisible();
+  await expect(page.locator('.anime-card')).toHaveCount(11);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  expect(
+    await page
+      .locator('.main-scroll')
+      .evaluate((element) => element.scrollWidth <= element.clientWidth),
+  ).toBe(true);
+  await expect(page.getByRole('button', { name: '全部评分', exact: true })).toBeVisible();
+  await page.screenshot({ path: 'test-results/catalog-mobile-dark.png' });
+  await page.getByRole('button', { name: '切换到亮色模式' }).click();
+  await page.screenshot({ path: 'test-results/catalog-mobile-light.png' });
 });
