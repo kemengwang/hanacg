@@ -1,7 +1,13 @@
 import { useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
-import type { Anime, AnimeCardProps } from '@hanacg/domain';
+import type { Anime, AnimeCardProps, BookCardProps } from '@hanacg/domain';
 
-export function Poster({ anime, eager = false }: { anime: Anime; eager?: boolean }) {
+export function Poster({
+  anime,
+  eager = false,
+}: {
+  anime: Pick<Anime, 'title' | 'cover'>;
+  eager?: boolean;
+}) {
   const [failed, setFailed] = useState(false);
   return (
     <div className="poster-image">
@@ -102,5 +108,32 @@ export function EmptyState({
       <p>{description}</p>
       {action}
     </div>
+  );
+}
+
+/** Informational card until book details and reading are available. */
+export function BookCard({ book }: BookCardProps) {
+  return (
+    <article className="book-card">
+      <div className="poster-wrap">
+        <Poster key={book.cover} anime={book} />
+        {book.score > 0 && (
+          <span className="score-badge">
+            <span aria-hidden="true">★</span> {book.score.toFixed(1)}
+          </span>
+        )}
+      </div>
+      <h3 className="book-card-title" title={book.title}>
+        {book.title}
+      </h3>
+      <p className="book-card-author" title={book.author}>
+        {book.author || '作者未收录'}
+      </p>
+      <p className="card-meta">
+        {book.year || '年份未收录'}
+        <span />
+        {book.status === 'unknown' ? '状态未收录' : book.status}
+      </p>
+    </article>
   );
 }

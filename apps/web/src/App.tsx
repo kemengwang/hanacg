@@ -3,6 +3,8 @@ import {
   ArrowDownWideNarrow,
   ArrowUpRight,
   Bookmark,
+  BookOpen,
+  LibraryBig,
   CalendarDays,
   Check,
   ChevronDown,
@@ -23,13 +25,18 @@ import {
 } from 'lucide-react';
 import { AnimeCard, Button, EmptyState, Poster } from '@hanacg/ui';
 import { filterAnime, type Anime, type DiscoveryTab, type ThemePreference } from '@hanacg/domain';
-import { createBangumiRepository, curatedAnime } from '@hanacg/api-client';
+import {
+  createBangumiRepository,
+  createBangumiBookRepository,
+  curatedAnime,
+} from '@hanacg/api-client';
 import { useDiscovery, useSavedAnime, useWatchHistory } from '@hanacg/feature-core';
 import { browserNetwork, browserStorage } from './platform';
 import { useTheme } from './theme';
 import { Modal } from './Modal';
 import { Topbar } from './Topbar';
 import { CatalogPage } from './catalog/CatalogPage';
+import { BookCatalogPage } from './catalog/BookCatalogPage';
 const PlaybackPage = lazy(() =>
   import('./playback/PlaybackPage').then((module) => ({ default: module.PlaybackPage })),
 );
@@ -40,6 +47,10 @@ const repository = createBangumiRepository(
   browserNetwork,
   import.meta.env.VITE_BANGUMI_API_BASE || 'https://api.bgm.tv',
 );
+const bookRepository = createBangumiBookRepository(
+  browserNetwork,
+  import.meta.env.VITE_BANGUMI_API_BASE || 'https://api.bgm.tv',
+);
 const weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 const genres = ['全部', '奇幻', '日常', '治愈', '冒险', '青春', '悬疑', '科幻'];
 const tabs: { id: DiscoveryTab; name: string }[] = [
@@ -47,7 +58,7 @@ const tabs: { id: DiscoveryTab; name: string }[] = [
   { id: 'calendar', name: '每日放送' },
   { id: 'ranking', name: '高分佳作' },
 ];
-type Page = 'discover' | 'anime' | 'saved' | 'history';
+type Page = 'discover' | 'anime' | 'novel' | 'manga' | 'saved' | 'history';
 const heroCopy = [
   {
     line: '在旅途的终点，重新出发。',
@@ -80,9 +91,12 @@ export function App() {
       browserStorage.getItem('hana:sidebar') === 'collapsed' ||
       matchMedia('(max-width: 760px)').matches,
   );
-  const keyword = page === 'anime' ? route.keyword : '';
+  const isCatalog = page === 'anime' || page === 'novel' || page === 'manga';
+  const searchCategory = page === 'novel' ? '小说' : page === 'manga' ? '漫画' : '番剧';
+  const keyword = isCatalog ? route.keyword : '';
   function search(keyword: string) {
-    go(`/anime${keyword ? `?${new URLSearchParams({ q: keyword })}` : ''}`, page === 'anime');
+    const target = isCatalog ? page : 'anime';
+    go(`/${target}${keyword ? `?${new URLSearchParams({ q: keyword })}` : ''}`, isCatalog);
     contentRef.current?.scrollTo({ top: 0 });
     if (matchMedia('(max-width: 760px)').matches) setCollapsed(true);
   }
@@ -122,8 +136,8 @@ export function App() {
         ? '我的追番'
         : page === 'history'
           ? '观看历史'
-          : page === 'anime'
-            ? '番剧'
+          : isCatalog
+            ? searchCategory
             : '发现';
   const showingHero = page === 'discover' && tab === 'recommended' && !keyword;
   const items = page === 'saved' ? saved : feed.items;
@@ -199,6 +213,7 @@ export function App() {
         onToggleSidebar={() => setCollapsed((value) => !value)}
         onHome={() => navigate('discover')}
         keyword={keyword}
+        searchCategory={searchCategory}
         onSearch={search}
         searchRef={searchRef}
         dark={resolved === 'dark'}
@@ -233,6 +248,23 @@ export function App() {
             <Tv size={18} />
             <span>番剧</span>
           </button>
+          {(
+            [
+              { id: 'novel', label: '小说', icon: BookOpen },
+              { id: 'manga', label: '漫画', icon: LibraryBig },
+            ] as const
+          ).map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              className={`nav-item ${page === id ? 'active' : ''}`}
+              aria-current={page === id ? 'page' : undefined}
+              title={label}
+              onClick={() => navigate(id)}
+            >
+              <Icon size={18} />
+              <span>{label}</span>
+            </button>
+          ))}
           <button
             className={`nav-item ${page === 'discover' && tab === 'calendar' ? 'active' : ''}`}
             aria-current={page === 'discover' && tab === 'calendar' ? 'page' : undefined}
@@ -310,6 +342,14 @@ export function App() {
                   persistent={historyPersistent}
                 />
               </Suspense>
+            ) : page === 'novel' || page === 'manga' ? (
+              <BookCatalogPage
+                key={`${page}:${keyword}`}
+                repository={bookRepository}
+                kind={page}
+                keyword={keyword}
+                onClearSearch={() => search('')}
+              />
             ) : page === 'anime' ? (
               <CatalogPage
                 key={keyword}

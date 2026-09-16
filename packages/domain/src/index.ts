@@ -51,3 +51,12 @@ export function filterAnime(items: readonly Anime[], query: DiscoveryQuery): Ani
   if (query.sort === 'year') results.sort((a, b) => b.year - a.year);
   return results;
 }
+
+export {
+  filterBooks,
+  type Book,
+  type BookKind,
+  type BookStatus,
+  type BookQuery,
+  type BookCardProps,
+} from './books';

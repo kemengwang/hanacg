@@ -100,3 +100,5 @@ export function useSavedAnime(storage: KeyValueStorage) {
 
 export { usePlayback, type PlaybackSelection } from './playback';
 export { useWatchHistory, readHistory, type WatchEntry } from './history';
+
+export { useBooks } from './books';

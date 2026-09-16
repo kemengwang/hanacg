@@ -6,6 +6,7 @@ export function Topbar({
   onToggleSidebar,
   onHome,
   keyword,
+  searchCategory,
   onSearch,
   searchRef,
   dark,
@@ -15,6 +16,7 @@ export function Topbar({
   onToggleSidebar: () => void;
   onHome: () => void;
   keyword: string;
+  searchCategory: string;
   onSearch: (keyword: string) => void;
   searchRef: RefObject<HTMLInputElement | null>;
   dark: boolean;
@@ -51,8 +53,8 @@ export function Topbar({
         <Search size={17} />
         <input
           ref={searchRef}
-          aria-label="搜索番剧"
-          placeholder="搜索番剧、关键词…"
+          aria-label={`搜索${searchCategory}`}
+          placeholder={`搜索${searchCategory}、关键词…`}
           value={keyword}
           onChange={(event) => onSearch(event.target.value)}
         />

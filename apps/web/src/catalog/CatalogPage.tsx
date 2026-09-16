@@ -5,6 +5,7 @@ import type { DiscoveryRepository } from '@hanacg/api-client';
 import { useDiscovery } from '@hanacg/feature-core';
 import { AnimeCard, Button, EmptyState } from '@hanacg/ui';
 import './catalog.css';
+import { FilterRow } from './FilterRow';
 
 const initialFilters: DiscoveryQuery = {
   keyword: '',
@@ -31,35 +32,6 @@ const genres = [
   '战斗',
   '机战',
 ];
-
-function FilterRow<T extends string | number>({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: T;
-  options: readonly { value: T; label: string }[];
-  onChange: (value: T) => void;
-}) {
-  return (
-    <div className="catalog-filter-row" role="group" aria-label={label}>
-      <span className="catalog-filter-label">{label}</span>
-      <div className="catalog-filter-options">
-        {options.map((option) => (
-          <button
-            key={option.value}
-            aria-pressed={value === option.value}
-            onClick={() => onChange(option.value)}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 export function CatalogPage({
   repository,

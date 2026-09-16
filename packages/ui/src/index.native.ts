@@ -1,2 +1,2 @@
 /** Native renderer is not implemented in the Web discovery milestone. */
-export type { AnimeCardProps } from '@hanacg/domain';
+export type { AnimeCardProps, BookCardProps } from '@hanacg/domain';

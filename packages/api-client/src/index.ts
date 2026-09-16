@@ -100,3 +100,5 @@ export {
   parseMedia,
   parseStoredAnime,
 } from './playback';
+
+export { createBangumiBookRepository, parseBook, type BookRepository } from './books';

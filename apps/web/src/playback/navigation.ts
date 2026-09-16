@@ -12,7 +12,11 @@ export function readRoute() {
           ? 'history'
           : path === '/anime'
             ? 'anime'
-            : 'discover',
+            : path === '/novel'
+              ? 'novel'
+              : path === '/manga'
+                ? 'manga'
+                : 'discover',
     keyword: new URLSearchParams(window.location.hash.split('?')[1] || '').get('q') || '',
     animeId: match ? Number(match[1]) : undefined,
   } as const;
