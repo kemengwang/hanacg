@@ -4,9 +4,12 @@ import '@hanacg/design-tokens/theme.css';
 import '@hanacg/ui/styles.css';
 import './styles.css';
 import { App } from './App';
+import { migrateCatalogIds } from './catalog/migrate-ids';
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-);
+void migrateCatalogIds().finally(() => {
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  );
+});

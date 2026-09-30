@@ -1,6 +1,11 @@
 import { buildServer } from './app';
 import { closeNetwork } from './network';
-const server = buildServer(undefined, true);
+import { connectDatabase } from './db/connection';
+const database = process.env.DATABASE_URL ? connectDatabase() : undefined;
+const server = buildServer(undefined, true, database);
+server.addHook('onClose', async () => {
+  await database?.close();
+});
 let closing = false;
 for (const signal of ['SIGINT', 'SIGTERM'] as const)
   process.once(signal, async () => {

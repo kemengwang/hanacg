@@ -103,7 +103,7 @@ export function usePlayback(
     const controller = new AbortController();
     episodeAbort.current = controller;
     repository
-      .episodes(match.sourceId, match.subjectId, controller.signal)
+      .episodes(match.sourceId, match.subjectId, controller.signal, anime.id)
       .then((lines) => {
         if (controller.signal.aborted) return;
         setLines(lines);
@@ -128,7 +128,7 @@ export function usePlayback(
         }
       });
     return () => controller.abort();
-  }, [repository, match, episodeVersion]);
+  }, [repository, match, episodeVersion, anime.id]);
   useEffect(() => {
     if (!match || !lineId || !episodeId) return;
     const controller = new AbortController();

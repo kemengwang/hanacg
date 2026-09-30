@@ -1,12 +1,16 @@
+import announcements from './content/announcements.json';
 import Fastify from 'fastify';
 import rateLimit from '@fastify/rate-limit';
 import { Readable } from 'node:stream';
-import { curatedAnime, parseAnime } from '@hanacg/api-client';
+import { curatedAnime } from '@hanacg/api-client';
 import type { SourceAdapter, SourceLine, SourceQuery } from '@hanacg/source-engine';
-import { sourceHost, createSourceHost, upstream, boundedText } from './network';
-import { createOmofun, omofunPlayerOrigin, OmofunSearchVerificationError } from './omofun';
-import { createAnime7, createTvt } from './sources';
-import { createXifan } from './xifan';
+import { upstream, boundedText } from './network';
+import { OmofunSearchVerificationError } from './omofun';
+import { defaultAdapters } from './source-adapters';
+import type { Database } from './db/connection';
+import { createCatalog } from './catalog/repository';
+import { registerCatalogRoutes } from './catalog/routes';
+import { trackSource, storeSourceLines } from './sync/sources';
 import { MediaTickets, rewritePlaylist } from './media';
 
 const text = { type: 'string', minLength: 1, maxLength: 200 };
@@ -18,14 +22,11 @@ const querySchema = (properties: Record<string, unknown>, required = Object.keys
   additionalProperties: false,
 });
 export function buildServer(
-  adapters: SourceAdapter[] = [
-    createXifan(sourceHost),
-    createAnime7(sourceHost),
-    createOmofun(sourceHost, createSourceHost([omofunPlayerOrigin])),
-    ...(process.env.HANA_ENABLE_TVTFUN === '1' ? [createTvt(sourceHost)] : []),
-  ],
+  adapters: SourceAdapter[] = defaultAdapters(),
   logger = false,
+  database?: Database,
 ) {
+  const catalog = database ? createCatalog(database) : undefined;
   const app = Fastify({ logger, bodyLimit: 16_384 });
   app.register(rateLimit, { global: false, max: 90, timeWindow: '1 minute' });
   const limited = { rateLimit: { max: 90, timeWindow: '1 minute' } };
@@ -58,7 +59,7 @@ export function buildServer(
     const e = error as Error & { statusCode?: number; validation?: unknown };
     const status = e.validation
       ? 400
-      : e.statusCode && e.statusCode >= 400 && e.statusCode < 500
+      : e.statusCode && e.statusCode >= 400 && e.statusCode <= 503
         ? e.statusCode
         : 502;
     request.log.warn({ err: e }, 'Request failed');
@@ -68,11 +69,18 @@ export function buildServer(
           ? '请求参数无效'
           : status === 429
             ? '请求过于频繁，请稍后再试'
-            : status === 404
-              ? e.message
-              : '来源暂时不可用，请重试或切换来源',
+            : status === 503
+              ? '资料库暂时不可用，请稍后重试'
+              : status === 404
+                ? e.message
+                : '来源暂时不可用，请重试或切换来源',
     });
   });
+  app.addHook('onRoute', (route) => {
+    if (route.url.startsWith('/api/catalog/')) route.config = { ...route.config, ...limited };
+  });
+  registerCatalogRoutes(app, catalog);
+  app.get('/api/announcements', async () => ({ items: announcements }));
   app.get('/api/health', async () => ({ status: 'ok' }));
   app.get('/api/sources', async () => ({ sources: adapters.map((a) => a.info) }));
   app.get<{ Params: { id: string } }>(
@@ -83,13 +91,11 @@ export function buildServer(
     },
     async (request) => {
       const id = Number(request.params.id);
+      const stored = await catalog?.anime(id);
+      if (stored) return { anime: stored, origin: 'catalog' };
       const local = curatedAnime.find((a) => a.id === id);
       if (local) return { anime: local, origin: 'snapshot' };
-      const anime = parseAnime(
-        await sourceHost.json(`https://api.bgm.tv/v0/subjects/${id}`, signals.get(request)),
-      );
-      if (!anime) throw Object.assign(new Error('未找到番剧资料'), { statusCode: 404 });
-      return { anime, origin: 'online' };
+      throw Object.assign(new Error('未找到番剧资料'), { statusCode: 404 });
     },
   );
   app.get<{ Querystring: SourceQuery }>(
@@ -135,12 +141,30 @@ export function buildServer(
       return { results };
     },
   );
-  app.get<{ Querystring: { sourceId: string; subjectId: string } }>(
+  app.get<{ Querystring: { sourceId: string; subjectId: string; animeId?: number } }>(
     '/api/playback/episodes',
     { config: limited, schema: { querystring: querySchema(selection) } },
-    async (request) => ({
-      lines: await lines(request.query.sourceId, request.query.subjectId, signals.get(request)!),
-    }),
+    async (request) => {
+      const result = await lines(
+        request.query.sourceId,
+        request.query.subjectId,
+        signals.get(request)!,
+      );
+      if (database && catalog && request.query.animeId) {
+        const anime = await catalog.anime(request.query.animeId);
+        if (anime) {
+          const entry = await trackSource(
+            database,
+            anime.id,
+            request.query.sourceId,
+            request.query.subjectId,
+          );
+          if (result.some((line) => line.episodes.length))
+            await storeSourceLines(database, entry, result);
+        }
+      }
+      return { lines: result };
+    },
   );
   app.get<{
     Querystring: { sourceId: string; subjectId: string; lineId: string; episodeId: string };

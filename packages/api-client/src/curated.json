@@ -9,7 +9,8 @@
     "year": 2023,
     "episodes": 28,
     "tags": ["奇幻", "冒险", "治愈"],
-    "airDate": "2023-09-29"
+    "airDate": "2023-09-29",
+    "regions": ["japan"]
   },
   {
     "id": 395378,
@@ -21,7 +22,8 @@
     "year": 2024,
     "episodes": 24,
     "tags": ["奇幻", "冒险", "美食"],
-    "airDate": "2024-01-04"
+    "airDate": "2024-01-04",
+    "regions": ["japan"]
   },
   {
     "id": 328609,
@@ -33,7 +35,8 @@
     "year": 2022,
     "episodes": 12,
     "tags": ["音乐", "日常", "青春"],
-    "airDate": "2022-10-08"
+    "airDate": "2022-10-08",
+    "regions": ["japan"]
   },
   {
     "id": 420628,
@@ -45,7 +48,8 @@
     "year": 2023,
     "episodes": 24,
     "tags": ["推理", "古风", "剧情"],
-    "airDate": "2023-10-21"
+    "airDate": "2023-10-21",
+    "regions": ["japan"]
   },
   {
     "id": 357961,
@@ -57,7 +61,8 @@
     "year": 2023,
     "episodes": 12,
     "tags": ["校园", "日常", "治愈"],
-    "airDate": "2023-04-04"
+    "airDate": "2023-04-04",
+    "regions": ["japan"]
   },
   {
     "id": 326895,
@@ -69,7 +74,8 @@
     "year": 2022,
     "episodes": 25,
     "tags": ["悬疑", "奇幻", "剧情"],
-    "airDate": "2022-04-14"
+    "airDate": "2022-04-14",
+    "regions": ["japan"]
   },
   {
     "id": 183878,
@@ -81,7 +87,8 @@
     "year": 2018,
     "episodes": 13,
     "tags": ["剧情", "治愈"],
-    "airDate": "2018-01-10"
+    "airDate": "2018-01-10",
+    "regions": ["japan"]
   },
   {
     "id": 158316,
@@ -93,7 +100,8 @@
     "year": 2016,
     "episodes": 12,
     "tags": ["奇幻", "青春", "动作"],
-    "airDate": "2016-07-11"
+    "airDate": "2016-07-11",
+    "regions": ["japan"]
   },
   {
     "id": 207195,
@@ -105,7 +113,8 @@
     "year": 2018,
     "episodes": 12,
     "tags": ["日常", "治愈"],
-    "airDate": "2018-01-04"
+    "airDate": "2018-01-04",
+    "regions": ["japan"]
   },
   {
     "id": 325285,
@@ -117,7 +126,8 @@
     "year": 2021,
     "episodes": 13,
     "tags": ["悬疑", "剧情"],
-    "airDate": "2021-04-05"
+    "airDate": "2021-04-05",
+    "regions": ["japan"]
   },
   {
     "id": 218707,
@@ -129,6 +139,7 @@
     "year": 2017,
     "episodes": 12,
     "tags": ["科幻", "日常"],
-    "airDate": "2017-10-06"
+    "airDate": "2017-10-06",
+    "regions": ["japan"]
   }
 ]

@@ -1,14 +1,12 @@
+import { DiscoveryPage } from './discovery/DiscoveryPage';
+import { catalogId } from './catalog/migrate-ids';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import {
-  ArrowDownWideNarrow,
   ArrowUpRight,
   Bookmark,
   BookOpen,
   LibraryBig,
-  CalendarDays,
   Check,
-  ChevronDown,
-  ChevronLeft,
   ChevronRight,
   CircleHelp,
   Compass,
@@ -16,21 +14,13 @@ import {
   Tv,
   Monitor,
   Moon,
-  Plus,
-  Search,
   Settings2,
-  SlidersHorizontal,
-  Sparkles,
   Sun,
 } from 'lucide-react';
 import { AnimeCard, Button, EmptyState, Poster } from '@hanacg/ui';
-import { filterAnime, type Anime, type DiscoveryTab, type ThemePreference } from '@hanacg/domain';
-import {
-  createBangumiRepository,
-  createBangumiBookRepository,
-  curatedAnime,
-} from '@hanacg/api-client';
-import { useDiscovery, useSavedAnime, useWatchHistory } from '@hanacg/feature-core';
+import { type Anime, type ThemePreference } from '@hanacg/domain';
+import { createCatalogRepository, createCatalogBookRepository } from '@hanacg/api-client';
+import { useSavedAnime, useWatchHistory } from '@hanacg/feature-core';
 import { browserNetwork, browserStorage } from './platform';
 import { useTheme } from './theme';
 import { Modal } from './Modal';
@@ -43,39 +33,9 @@ const PlaybackPage = lazy(() =>
 import './playback/playback.css';
 import { useNavigation } from './playback/navigation';
 
-const repository = createBangumiRepository(
-  browserNetwork,
-  import.meta.env.VITE_BANGUMI_API_BASE || 'https://api.bgm.tv',
-);
-const bookRepository = createBangumiBookRepository(
-  browserNetwork,
-  import.meta.env.VITE_BANGUMI_API_BASE || 'https://api.bgm.tv',
-);
-const weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
-const genres = ['全部', '奇幻', '日常', '治愈', '冒险', '青春', '悬疑', '科幻'];
-const tabs: { id: DiscoveryTab; name: string }[] = [
-  { id: 'recommended', name: '为你推荐' },
-  { id: 'calendar', name: '每日放送' },
-  { id: 'ranking', name: '高分佳作' },
-];
+const repository = createCatalogRepository(browserNetwork);
+const bookRepository = createCatalogBookRepository(browserNetwork);
 type Page = 'discover' | 'anime' | 'novel' | 'manga' | 'saved' | 'history';
-const heroCopy = [
-  {
-    line: '在旅途的终点，重新出发。',
-    caption: '关于时间、相遇，和那些后知后觉的温柔。',
-    image: '/artwork/hero-frieren.jpg',
-  },
-  {
-    line: '冒险，也要好好吃饭。',
-    caption: '跟随莱欧斯一行，走进美味又危险的地下城。',
-    image: '/artwork/dungeon.jpg',
-  },
-  {
-    line: '从一个人，到一支乐队。',
-    caption: '把说不出口的心事，都交给吉他和摇滚。',
-    image: '/artwork/bocchi.jpg',
-  },
-];
 
 export function App() {
   const { route, go } = useNavigation();
@@ -85,7 +45,6 @@ export function App() {
     save: saveProgress,
     persistent: historyPersistent,
   } = useWatchHistory(browserStorage);
-  const [tab, setTab] = useState<DiscoveryTab>('recommended');
   const [collapsed, setCollapsed] = useState(
     () =>
       browserStorage.getItem('hana:sidebar') === 'collapsed' ||
@@ -100,10 +59,6 @@ export function App() {
     contentRef.current?.scrollTo({ top: 0 });
     if (matchMedia('(max-width: 760px)').matches) setCollapsed(true);
   }
-  const [genre, setGenre] = useState('全部');
-  const [sort, setSort] = useState<'recommended' | 'score' | 'year'>('recommended');
-  const [weekday, setWeekday] = useState(() => ((new Date().getDay() + 6) % 7) + 1);
-  const [heroIndex, setHeroIndex] = useState(0);
   const [watchSeed, setWatchSeed] = useState<Anime>();
   function openAnime(anime: Anime) {
     setWatchSeed(anime);
@@ -113,22 +68,14 @@ export function App() {
   }
   const [settings, setSettings] = useState(false);
   const [about, setAbout] = useState(false);
-  const [refresh, setRefresh] = useState(0);
-  const [visible, setVisible] = useState(6);
   const [toast, setToast] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLElement>(null);
   const { theme, resolved, setTheme } = useTheme();
-  const { saved, toggle, persistent } = useSavedAnime(browserStorage);
-  const feed = useDiscovery(
-    repository,
-    page === 'discover' ? tab : 'recommended',
-    page === 'discover' ? keyword : '',
-    refresh,
-  );
-  const hero = curatedAnime[heroIndex]!;
-  const heroText = heroCopy[heroIndex]!;
-  const isSaved = (anime: Anime) => saved.some((item) => item.id === anime.id);
+  const { saved, toggle: toggleStored, persistent } = useSavedAnime(browserStorage);
+  const toggle = (anime: Anime) => toggleStored({ ...anime, id: catalogId(anime.id) });
+  const isSaved = (anime: Anime) =>
+    saved.some((item) => catalogId(item.id) === catalogId(anime.id));
   const title =
     page === 'watch'
       ? '播放'
@@ -139,25 +86,8 @@ export function App() {
           : isCatalog
             ? searchCategory
             : '发现';
-  const showingHero = page === 'discover' && tab === 'recommended' && !keyword;
-  const items = page === 'saved' ? saved : feed.items;
-  const filtered = filterAnime(
-    tab === 'calendar' && page === 'discover' && !keyword
-      ? items.filter((item) => item.weekday === weekday)
-      : items,
-    {
-      keyword: page === 'saved' || feed.error ? keyword : '',
-      genre,
-      sort: tab === 'ranking' && sort === 'recommended' ? 'score' : sort,
-    },
-  );
-
-  function navigate(nextPage: Page, nextTab: DiscoveryTab = 'recommended') {
+  function navigate(nextPage: Page) {
     go(nextPage === 'discover' ? '/' : `/${nextPage}`);
-    setTab(nextTab);
-    setGenre('全部');
-    setSort('recommended');
-    setVisible(6);
     if (matchMedia('(max-width: 760px)').matches) setCollapsed(true);
     contentRef.current?.scrollTo({ top: 0 });
   }
@@ -171,9 +101,6 @@ export function App() {
   useEffect(() => {
     document.title = `${title} · Hana ACG`;
   }, [title]);
-  useEffect(() => {
-    setVisible(6);
-  }, [keyword, genre, tab, page]);
   useEffect(() => {
     if (toast) {
       const timer = setTimeout(() => setToast(''), 2600);
@@ -230,8 +157,8 @@ export function App() {
         <div className="nav-group">
           <p className="nav-caption">探索</p>
           <button
-            className={`nav-item ${page === 'discover' && tab !== 'calendar' ? 'active' : ''}`}
-            aria-current={page === 'discover' && tab !== 'calendar' ? 'page' : undefined}
+            className={`nav-item ${page === 'discover' ? 'active' : ''}`}
+            aria-current={page === 'discover' ? 'page' : undefined}
             title="发现"
             onClick={() => navigate('discover')}
           >
@@ -265,15 +192,6 @@ export function App() {
               <span>{label}</span>
             </button>
           ))}
-          <button
-            className={`nav-item ${page === 'discover' && tab === 'calendar' ? 'active' : ''}`}
-            aria-current={page === 'discover' && tab === 'calendar' ? 'page' : undefined}
-            title="每日放送"
-            onClick={() => navigate('discover', 'calendar')}
-          >
-            <CalendarDays size={18} />
-            <span>每日放送</span>
-          </button>
         </div>
         <div className="nav-group">
           <p className="nav-caption">资料库</p>
@@ -334,11 +252,18 @@ export function App() {
                   key={route.animeId}
                   animeId={route.animeId}
                   seed={watchSeed?.id === route.animeId ? watchSeed : undefined}
-                  saved={saved.some((a) => a.id === route.animeId)}
+                  saved={saved.some((a) => catalogId(a.id) === catalogId(Number(route.animeId)))}
                   onSave={toggleSaved}
                   onBack={() => navigate('discover')}
-                  history={history.find((e) => e.anime.id === route.animeId)}
-                  onProgress={saveProgress}
+                  history={history.find(
+                    (e) => catalogId(e.anime.id) === catalogId(Number(route.animeId)),
+                  )}
+                  onProgress={(entry) =>
+                    saveProgress({
+                      ...entry,
+                      anime: { ...entry.anime, id: catalogId(entry.anime.id) },
+                    })
+                  }
                   persistent={historyPersistent}
                 />
               </Suspense>
@@ -361,373 +286,72 @@ export function App() {
                 onClearSearch={() => search('')}
                 persistent={persistent}
               />
+            ) : page === 'discover' ? (
+              <DiscoveryPage
+                repository={repository}
+                saved={saved}
+                onOpen={openAnime}
+                onToggleSave={toggleSaved}
+              />
             ) : (
               <>
                 <div className="page-heading">
                   <div>
-                    <h1>{page === 'discover' ? '今天，看点什么？' : title}</h1>
+                    <h1>{title}</h1>
                     <p>
-                      {page === 'discover'
-                        ? '在熟悉的日常之外，发现一个新世界。'
-                        : page === 'saved'
-                          ? '把喜欢的故事，留在这里。'
-                          : '每一段旅程，都值得记得。'}
+                      {page === 'saved' ? '把喜欢的故事，留在这里。' : '每一段旅程，都值得记得。'}
                     </p>
                   </div>
                 </div>
-
-                {page === 'discover' && (
-                  <div className="discovery-tabs" role="tablist" aria-label="发现分类">
-                    {tabs.map((item) => (
-                      <button
-                        role="tab"
-                        id={`tab-${item.id}`}
-                        aria-controls="discovery-panel"
-                        aria-selected={tab === item.id}
-                        tabIndex={tab === item.id ? 0 : -1}
-                        key={item.id}
-                        className={tab === item.id ? 'selected' : ''}
-                        onClick={() => {
-                          setTab(item.id);
-                          setGenre('全部');
-                          setSort('recommended');
-                        }}
-                        onKeyDown={(event) => {
-                          const direction =
-                            event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
-                          if (direction) {
-                            event.preventDefault();
-                            const next =
-                              tabs[
-                                (tabs.findIndex((entry) => entry.id === tab) +
-                                  direction +
-                                  tabs.length) %
-                                  tabs.length
-                              ]!;
-                            setTab(next.id);
-                            setGenre('全部');
-                            document.getElementById(`tab-${next.id}`)?.focus();
-                          }
-                        }}
-                      >
-                        {item.name}
-                      </button>
-                    ))}
-                    <span className="tab-note">
-                      {tab === 'recommended' ? '总有一个故事，与你共鸣' : '数据来自 Bangumi'}
-                    </span>
-                  </div>
-                )}
-
-                <div
-                  id="discovery-panel"
-                  role={page === 'discover' ? 'tabpanel' : undefined}
-                  aria-labelledby={page === 'discover' ? `tab-${tab}` : undefined}
-                >
-                  {showingHero && (
-                    <section className={`hero hero-${heroIndex}`} aria-label="精选番剧">
-                      <img
-                        className="hero-art"
-                        src={heroText.image}
-                        alt=""
-                        onError={(event) => {
-                          if (!event.currentTarget.src.endsWith(hero.cover))
-                            event.currentTarget.src = hero.cover;
-                        }}
-                      />
-                      <div className="hero-shade" />
-                      <div className="hero-content">
-                        <span className="hero-label">
-                          <Sparkles size={13} /> 值得相遇的故事
-                        </span>
-                        <h2>{hero.title}</h2>
-                        <p className="hero-line">{heroText.line}</p>
-                        <p className="hero-caption">{heroText.caption}</p>
-                        <div className="hero-meta">
-                          <span className="hero-score">★ {hero.score.toFixed(1)}</span>
-                          <span>{hero.year}</span>
-                          <span>{hero.tags.slice(0, 2).join(' / ')}</span>
-                          <span>全 {hero.episodes} 话</span>
-                        </div>
-                        <div className="hero-buttons">
-                          <button className="hero-primary" onClick={() => openAnime(hero)}>
-                            查看番剧 <ChevronRight size={16} />
-                          </button>
-                          <button
-                            className={`hero-save ${isSaved(hero) ? 'saved' : ''}`}
-                            onClick={() => toggleSaved(hero)}
-                            aria-pressed={isSaved(hero)}
-                          >
-                            {isSaved(hero) ? <Check size={16} /> : <Plus size={16} />}
-                            {isSaved(hero) ? '已追番' : '加入追番'}
-                          </button>
-                        </div>
-                      </div>
-                      <div className="hero-pagination">
-                        <div className="hero-dots">
-                          {heroCopy.map((_, index) => (
-                            <button
-                              key={index}
-                              aria-label={`精选第 ${index + 1} 部`}
-                              aria-pressed={heroIndex === index}
-                              className={heroIndex === index ? 'active' : ''}
-                              onClick={() => setHeroIndex(index)}
-                            />
-                          ))}
-                        </div>
-                        <span className="hero-page">{heroIndex + 1} / 3</span>
+                {page === 'history' ? (
+                  history.length ? (
+                    <div className="history-list">
+                      {history.map((entry) => (
                         <button
-                          aria-label="上一部精选"
-                          onClick={() => setHeroIndex((heroIndex + 2) % 3)}
+                          className="history-entry"
+                          key={entry.anime.id}
+                          onClick={() => openAnime(entry.anime)}
                         >
-                          <ChevronLeft size={16} />
+                          <Poster anime={entry.anime} />
+                          <span>
+                            <strong>{entry.anime.title}</strong>
+                            <small>
+                              {entry.episodeTitle} · 已观看 {Math.floor(entry.position / 60)} 分钟
+                            </small>
+                            <progress value={entry.position} max={entry.duration || 1} />
+                          </span>
+                          <ChevronRight size={18} />
                         </button>
-                        <button
-                          aria-label="下一部精选"
-                          onClick={() => setHeroIndex((heroIndex + 1) % 3)}
-                        >
-                          <ChevronRight size={16} />
-                        </button>
-                      </div>
-                    </section>
-                  )}
-
-                  {page === 'history' ? (
-                    history.length ? (
-                      <div className="history-list">
-                        {history.map((entry) => (
-                          <button
-                            className="history-entry"
-                            key={entry.anime.id}
-                            onClick={() => openAnime(entry.anime)}
-                          >
-                            <Poster anime={entry.anime} />
-                            <span>
-                              <strong>{entry.anime.title}</strong>
-                              <small>
-                                {entry.episodeTitle} · 已观看 {Math.floor(entry.position / 60)} 分钟
-                              </small>
-                              <progress value={entry.position} max={entry.duration || 1} />
-                            </span>
-                            <ChevronRight size={18} />
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <EmptyState
-                        icon={<History />}
-                        title="故事，还没开始"
-                        description="观看记录会在播放番剧后出现在这里。选择番剧和分集，开始你的第一段旅程。"
-                        action={<Button onClick={() => navigate('discover')}>去发现好故事</Button>}
-                      />
-                    )
+                      ))}
+                    </div>
                   ) : (
-                    <>
-                      <section
-                        className="catalog-section"
-                        aria-label={page === 'saved' ? '我的追番列表' : '番剧列表'}
-                      >
-                        <div className="section-heading">
-                          <div>
-                            <h2>
-                              {keyword
-                                ? `“${keyword}”的搜索结果`
-                                : page === 'saved'
-                                  ? '已加入追番'
-                                  : tab === 'calendar'
-                                    ? '一周放送表'
-                                    : tab === 'ranking'
-                                      ? '经得起时间的佳作'
-                                      : '下一部，选哪部'}
-                            </h2>
-                            <span>
-                              {page === 'saved'
-                                ? `${saved.length} 部番剧`
-                                : keyword
-                                  ? feed.loading
-                                    ? '正在搜索'
-                                    : `${filtered.length} 部番剧`
-                                  : tab === 'recommended'
-                                    ? '编辑精选，慢慢挑选'
-                                    : tab === 'calendar'
-                                      ? '播出日期以作品官方公告为准'
-                                      : '按 Bangumi 评分发现好故事'}
-                            </span>
-                          </div>
-                          <label className="sort-control">
-                            <ArrowDownWideNarrow size={14} />
-                            <select
-                              aria-label="番剧排序"
-                              value={sort}
-                              onChange={(event) => setSort(event.target.value as typeof sort)}
-                            >
-                              <option value="recommended">
-                                {tab === 'ranking' ? '评分优先' : '推荐排序'}
-                              </option>
-                              <option value="score">评分从高到低</option>
-                              <option value="year">年份从新到旧</option>
-                            </select>
-                            <ChevronDown size={13} />
-                          </label>
-                        </div>
-                        {tab === 'calendar' && page === 'discover' && !keyword ? (
-                          <div className="weekdays" aria-label="选择放送日">
-                            {weekdays.map((day, index) => (
-                              <button
-                                key={day}
-                                aria-pressed={weekday === index + 1}
-                                className={weekday === index + 1 ? 'active' : ''}
-                                onClick={() => setWeekday(index + 1)}
-                              >
-                                {day}
-                                {index + 1 === ((new Date().getDay() + 6) % 7) + 1 && (
-                                  <small>今天</small>
-                                )}
-                              </button>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="genre-row" aria-label="番剧类型">
-                            {genres.map((item) => (
-                              <button
-                                key={item}
-                                aria-pressed={genre === item}
-                                className={genre === item ? 'active' : ''}
-                                onClick={() => setGenre(item)}
-                              >
-                                {item}
-                              </button>
-                            ))}
-                            <SlidersHorizontal
-                              size={15}
-                              className="genre-decoration"
-                              aria-hidden="true"
-                            />
-                          </div>
-                        )}
-                        {!persistent && (
-                          <div className="data-notice" role="status">
-                            浏览器不允许保存数据，本次追番仅在当前页面保留。
-                          </div>
-                        )}
-                        {page === 'discover' && feed.error && (
-                          <div className="data-notice" role="status">
-                            <span>
-                              {tab === 'calendar' && !keyword
-                                ? '暂时无法获取在线放送表，请稍后重试。'
-                                : '暂时无法连接 Bangumi，以下为本地精选中的结果。'}
-                            </span>
-                            <button onClick={() => setRefresh((value) => value + 1)}>
-                              重新加载
-                            </button>
-                          </div>
-                        )}
-                        {page === 'discover' && feed.loading ? (
-                          <div className="anime-grid" aria-label="正在加载番剧" role="status">
-                            {Array.from({ length: 6 }, (_, i) => (
-                              <div className="skeleton-card" key={i}>
-                                <div />
-                                <span />
-                                <span />
-                              </div>
-                            ))}
-                          </div>
-                        ) : filtered.length ? (
-                          <>
-                            <div className="anime-grid">
-                              {filtered.slice(0, visible).map((anime) => (
-                                <AnimeCard
-                                  key={anime.id}
-                                  anime={anime}
-                                  saved={isSaved(anime)}
-                                  onOpen={openAnime}
-                                  onToggleSave={toggleSaved}
-                                />
-                              ))}
-                            </div>
-                            {filtered.length > visible && (
-                              <div className="load-more">
-                                <button onClick={() => setVisible((value) => value + 12)}>
-                                  发现更多番剧 <ChevronDown size={14} />
-                                </button>
-                              </div>
-                            )}
-                          </>
-                        ) : (
-                          <EmptyState
-                            icon={
-                              page === 'saved' ? (
-                                <Bookmark />
-                              ) : tab === 'calendar' ? (
-                                <CalendarDays />
-                              ) : (
-                                <Search />
-                              )
-                            }
-                            title={
-                              page === 'saved' && !saved.length
-                                ? '为喜欢的故事留个位置'
-                                : tab === 'calendar' && !keyword
-                                  ? feed.error
-                                    ? '放送表暂时未能抵达'
-                                    : '这一天暂时没有放送记录'
-                                  : '还没有找到这部番剧'
-                            }
-                            description={
-                              page === 'saved' && !saved.length
-                                ? '点击海报上的收藏图标，把想看的番剧加入追番。'
-                                : tab === 'calendar' && !keyword
-                                  ? '可以切换其他日期，或先看看为你精选的作品。'
-                                  : '试试其他关键词，或清除类型筛选继续发现。'
-                            }
-                            action={
-                              <Button
-                                onClick={() => {
-                                  if ((page === 'saved' && !saved.length) || tab === 'calendar')
-                                    navigate('discover');
-                                  else {
-                                    setGenre('全部');
-                                  }
-                                }}
-                              >
-                                {(page === 'saved' && !saved.length) || tab === 'calendar'
-                                  ? '浏览精选番剧'
-                                  : '清除筛选'}
-                              </Button>
-                            }
-                          />
-                        )}
-                      </section>
-                      {showingHero && (
-                        <section className="discovery-bottom">
-                          <div>
-                            <CalendarDays size={22} />
-                            <div>
-                              <h3>让期待，有个日程。</h3>
-                              <p>看看这一周，有哪些故事正在发生。</p>
-                            </div>
-                          </div>
-                          <button onClick={() => navigate('discover', 'calendar')}>
-                            查看每日放送 <ChevronRight size={15} />
-                          </button>
-                        </section>
-                      )}
-                    </>
-                  )}
-                </div>
-                <footer className="page-footer">
-                  <span className="footer-brand">
-                    hana<span> acg</span>
-                  </span>
-                  <span>一处安静的番剧角落</span>
-                  <span className="footer-source">
-                    番剧资料来自{' '}
-                    <a href="https://bgm.tv" target="_blank" rel="noreferrer">
-                      Bangumi <ArrowUpRight size={10} />
-                    </a>
-                    {showingHero && ' · 精选资料快照'}
-                  </span>
-                </footer>
+                    <EmptyState
+                      icon={<History />}
+                      title="故事，还没开始"
+                      description="观看记录会在播放番剧后出现在这里。"
+                      action={<Button onClick={() => navigate('anime')}>浏览番剧</Button>}
+                    />
+                  )
+                ) : saved.length ? (
+                  <div className="anime-grid">
+                    {saved.map((anime) => (
+                      <AnimeCard
+                        key={anime.id}
+                        anime={anime}
+                        saved={true}
+                        onOpen={openAnime}
+                        onToggleSave={toggleSaved}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState
+                    icon={<Bookmark />}
+                    title="为喜欢的故事留个位置"
+                    description="点击海报上的收藏图标，把想看的番剧加入追番。"
+                    action={<Button onClick={() => navigate('anime')}>浏览番剧</Button>}
+                  />
+                )}
               </>
             )}
           </div>
@@ -779,8 +403,8 @@ export function App() {
               的第一个版本，从发现喜欢的番剧，到选择来源继续观看。
             </p>
             <p>
-              精选为本地资料快照，搜索、高分佳作与每日放送由 Bangumi
-              提供在线元数据。海报版权归各作品权利人所有。
+              精选为本地资料快照，搜索、高分佳作与每日放送由 Hana
+              资料库提供。海报版权归各作品权利人所有。
             </p>
           </div>
           <span className="version">播放预览版 0.1.0</span>

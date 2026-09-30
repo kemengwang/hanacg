@@ -205,8 +205,8 @@ function WatchContent({
                 <summary>番剧简介</summary>
                 <p>{anime.summary || '暂无简介。'}</p>
               </details>
-              <a href={`https://bgm.tv/subject/${anime.id}`} target="_blank" rel="noreferrer">
-                Bangumi 资料
+              <a href="/data-notice.html" target="_blank" rel="noreferrer">
+                资料说明
                 <ArrowUpRight size={12} />
               </a>
             </div>

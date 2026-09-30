@@ -14,13 +14,13 @@ Hana ACG 是一个以前端为主导的动漫视频播放平台，首批目标�
 - macOS 与 Windows 使用 Electron，并复用 Web 的 renderer 与 UI。
 - iOS 与 Android 使用 React Native；可以由 Expo 管理项目，需要原生能力时采用支持原生模块的构建方式。
 - 工作区使用 **pnpm monorepo**，Web 使用 **Vite + React + TypeScript**；本阶段使用 React hooks 管理发现页状态、Lucide 图标、Vitest 共享逻辑测试和 Playwright 浏览器验证。
-- 服务端使用 **Fastify + TypeScript**，与 Vite SPA 分离，不使用 SSR。Web 播放器采用 HTMLVideoElement + HLS.js；播放页使用 hash 地址支持刷新与分享。全局状态库、Native 构建与各端发布流程仍待实际需求确定。
+- 服务端使用 **Fastify + TypeScript + PostgreSQL + Drizzle**，与 Vite SPA 分离，不使用 SSR。Web 播放器采用 HTMLVideoElement + HLS.js；播放页使用 hash 地址支持刷新与分享。全局状态库、Native 构建与各端发布流程仍待实际需求确定。
 
 ## 当前能力：发现与播放
 
-Web 已可运行：Codex 客户端风格的可折叠侧栏、吸顶 Logo 与全局搜索、独立番剧目录（排序 / 风格 / 年份 / 季度 / 评分分行筛选）、独立小说 / 漫画目录（排序 / 题材 / 年份 / 连载状态 / 评分筛选）、亮色 / 暗色 / 跟随系统、推荐横幅、番剧类型筛选、评分 / 年份排序、搜索、每日放送、高分佳作、独立播放页与本地追番。支持手机窄屏、键盘操作与请求失败反馈。
+Web 已可运行：Codex 客户端风格的可折叠侧栏、吸顶 Logo 与全局搜索、独立番剧目录（排序 / 风格 / 年份 / 季度 / 评分分行筛选）、独立小说 / 漫画目录（排序 / 题材 / 年份 / 连载状态 / 评分筛选）、亮色 / 暗色 / 跟随系统、全站公告栏、新番时间表、番剧地区及类型筛选、评分 / 年份排序、搜索、独立播放页与本地追番。支持手机窄屏、键盘操作与请求失败反馈。
 
-推荐页包含 11 部真实番剧的本地资料与海报快照；搜索、放送表和高分列表通过 Bangumi 公开 API 请求元数据。网络不可用时明确回退到精选；放送表失败不会生成虚假的更新记录。点击番剧直接进入播放页，支持来源匹配、按来源加载线路和分集、解析播放地址、手动换源、下一集及本地观看历史。没有账户或通用远程规则执行器。小说与漫画使用 Bangumi 真实书籍资料，顶部搜索跟随当前栏目；筛选当前加载的最多 24 部，网络失败可重试，不填充模拟数据。书籍详情与阅读尚未实现。
+发现页仅展示全站公告与新番时间表；公告配置位于 `apps/server/src/content/announcements.json`（当前为空），番剧目录保留 11 部本地快照作为离线回退；搜索、放送表和高分列表通过 Hana API 读取 PostgreSQL 自有作品库，独立 worker 导入并维护外部资料。网络不可用时明确回退到精选；放送表失败不会生成虚假的更新记录。点击番剧直接进入播放页，支持来源匹配、按来源加载线路和分集、解析播放地址、手动换源、下一集及本地观看历史。没有账户或通用远程规则执行器。小说与漫画使用自有作品库中的真实书籍资料，顶部搜索跟随当前栏目；筛选当前加载的最多 24 部，网络失败可重试，不填充模拟数据。书籍详情与阅读尚未实现。
 
 播放来源默认包含稀饭动漫、Anime7 和 Omofun。Omofun 下提供天堂、精品、暴风、量子四条独立线路；站内关键词搜索遇到验证时，可在播放页的来源搜索框粘贴 Omofun 详情或播放链接，选中候选后再选集。刷新和历史恢复会直接读取已选来源条目。
 
@@ -32,10 +32,13 @@ Web 已可运行：Codex 客户端风格的可折叠侧栏、吸顶 Logo 与全�
 
 ```sh
 pnpm install
+pnpm db:up
+cp apps/server/.env.example apps/server/.env
+pnpm db:migrate
 pnpm dev
 ```
 
-打开 http://127.0.0.1:5173 。`pnpm dev` 同时启动 Vite（5173）与 Fastify（3001），Vite 将 `/api` 代理到 Fastify。构建产物为 `apps/web/dist` 和 `apps/server/dist`。
+打开 http://127.0.0.1:5173 。`pnpm dev` 同时启动 Vite（5173）、Fastify（3001）和独立同步 worker，Vite 将 `/api` 代理到 Fastify。构建产物为 `apps/web/dist` 和 `apps/server/dist`。
 
 若本地代理使用 `198.18.0.0/15` Fake-IP DNS，显式运行 `HANA_FAKE_IP_DNS=1 pnpm dev`。仅在信任的本地代理环境使用；默认仍拒绝非公网地址。
 
@@ -50,7 +53,12 @@ node scripts/verify-live-playback.mjs # 单独验证真实来源；需要先 pnp
 
 根命令只覆盖 Hana 工作区，不会运行或修改参考项目。E2E 使用受控的第三方接口响应，在线连通性另行验证。
 
-默认数据地址是 `https://api.bgm.tv`。如所在网络无法访问，可参考 `apps/web/.env.example` 设置 `VITE_BANGUMI_API_BASE` 到兼容、允许浏览器跨域请求的 HTTPS 元数据端点。此项是公开地址，会进入客户端产物，不能填入密钥。发现页继续直连 Bangumi；来源与播放请求走独立 Fastify 服务。生产环境需将同域 `/api/*` 转发到该服务（preview 仅预览静态前端，不自带 API 转发）。
+数据库连接、User-Agent 与可选 access token 仅配置在 `apps/server/.env`；公开资料无需账号。客户端目录不再直连上游。`pnpm dev:app` 仅运行 Web/API；生产需分别运行 server 的 `start` 和 `start:worker`，并将同域 `/api/*` 转发到 API 服务。初始化、模型、同步策略与数据使用边界见 [自有作品库](docs/design/catalog.md)。
+
+```sh
+pnpm db:import 10380 18462 352517 # 小批量真实资料导入
+pnpm test:db                     # 独立临时数据库的集成验证
+```
 
 界面规范与素材出处见 [发现页设计](docs/design/discovery.md)。播放接口、来源限制与部署说明见 [播放链路](docs/design/playback.md)。
 
@@ -98,7 +106,7 @@ flowchart TB
 .
 ├── apps/
 │   ├── web/                 # React Web
-│   ├── server/              # Fastify 来源 API 与媒体网关
+│   ├── server/              # Fastify 目录/来源 API、PostgreSQL 与同步 worker
 │   ├── desktop/             # Electron 入口占位，后续复用 Web renderer
 │   └── mobile/              # React Native 入口占位（iOS、Android）
 ├── packages/

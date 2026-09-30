@@ -1,4 +1,4 @@
-import type { Anime } from '@hanacg/domain';
+import { isAnimeRegion, type Anime } from '@hanacg/domain';
 import type { NetworkClient, MediaResource } from '@hanacg/platform';
 import type { PlaybackRepository, SourceSearchResult, SourceLine } from '@hanacg/source-engine';
 import { record } from './index';
@@ -81,7 +81,8 @@ export function parseStoredAnime(value: unknown): Anime | null {
       (key) => typeof v[key] === 'number' && Number.isFinite(v[key]) && Number(v[key]) >= 0,
     ) ||
     !Array.isArray(v.tags) ||
-    !v.tags.every((t) => typeof t === 'string')
+    !v.tags.every((t) => typeof t === 'string') ||
+    (v.regions !== undefined && (!Array.isArray(v.regions) || !v.regions.every(isAnimeRegion)))
   )
     return null;
   return {
@@ -95,6 +96,15 @@ export function parseStoredAnime(value: unknown): Anime | null {
     year: Number(v.year),
     episodes: Number(v.episodes),
     tags: v.tags,
+    releaseStatus: ['ongoing', 'completed', 'upcoming', 'unknown'].includes(String(v.releaseStatus))
+      ? (v.releaseStatus as Anime['releaseStatus'])
+      : 'unknown',
+    ...(typeof v.updatedEpisodes === 'number' &&
+    Number.isFinite(v.updatedEpisodes) &&
+    v.updatedEpisodes > 0
+      ? { updatedEpisodes: v.updatedEpisodes }
+      : {}),
+    regions: Array.isArray(v.regions) ? v.regions.filter(isAnimeRegion) : [],
   };
 }
 export function createPlaybackRepository(
@@ -117,8 +127,14 @@ export function createPlaybackRepository(
     async search(query, signal) {
       return parseSourceResults(await get('playback/search', { ...query }, signal));
     },
-    async episodes(sourceId, subjectId, signal) {
-      return parseLines(await get('playback/episodes', { sourceId, subjectId }, signal));
+    async episodes(sourceId, subjectId, signal, animeId) {
+      return parseLines(
+        await get(
+          'playback/episodes',
+          { sourceId, subjectId, ...(animeId ? { animeId } : {}) },
+          signal,
+        ),
+      );
     },
     async resolve(sourceId, subjectId, lineId, episodeId, signal) {
       return parseMedia(

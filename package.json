@@ -9,7 +9,7 @@
     "pnpm": ">=10"
   },
   "scripts": {
-    "dev": "pnpm --parallel --filter @hanacg/server --filter @hanacg/web dev",
+    "dev": "pnpm --parallel --filter @hanacg/server --filter @hanacg/web run \"/^(dev|worker)$/\"",
     "build": "pnpm --filter @hanacg/web build && pnpm --filter @hanacg/server build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -19,7 +19,14 @@
     "format": "prettier --write apps/web/src apps/server/src apps/server/*.json packages tests *.ts *.json",
     "format:check": "prettier --check apps/web/src apps/server/src apps/server/*.json packages tests *.ts *.json",
     "dev:web": "pnpm --filter @hanacg/web dev",
-    "dev:server": "pnpm --filter @hanacg/server dev"
+    "dev:server": "pnpm --filter @hanacg/server dev",
+    "db:up": "docker compose up -d postgres",
+    "db:migrate": "pnpm --filter @hanacg/server db:migrate",
+    "db:import": "pnpm --filter @hanacg/server db:import",
+    "dev:worker": "pnpm --filter @hanacg/server worker",
+    "test:db": "pnpm --filter @hanacg/server test:db",
+    "dev:app": "pnpm --parallel --filter @hanacg/server --filter @hanacg/web dev",
+    "db:status": "pnpm --filter @hanacg/server db:status"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",

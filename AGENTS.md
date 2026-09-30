@@ -11,7 +11,7 @@
 
 - 使用 pnpm monorepo，工作区为 `apps/*` 与 `packages/*`；内部依赖使用 `workspace:*`。
 - Web 使用 React + TypeScript + Vite；当前业务状态使用 React hooks，图标使用 Lucide。
-- 独立服务端使用 Fastify + TypeScript，与 Vite SPA 前后端分离，不使用 SSR。Web 播放使用 HTMLVideoElement + HLS.js；播放页使用 hash 导航。
+- 独立服务端使用 Fastify + TypeScript + PostgreSQL + Drizzle，与 Vite SPA 前后端分离，不使用 SSR。Web 播放使用 HTMLVideoElement + HLS.js；播放页使用 hash 导航。
 - macOS 与 Windows 使用 Electron，复用 Web renderer 和 UI。
 - iOS 与 Android 使用 React Native；可以用 Expo 管理项目，但在能力需要时必须允许原生模块与原生构建。
 - 共享逻辑测试使用 Vitest，浏览器交互验证使用 Playwright，格式化使用 Prettier。
@@ -20,7 +20,7 @@
 
 ## 当前工程状态
 
-- 当前可运行客户端为 `apps/web`，已实现发现、搜索、每日放送、高分列表、本地追番，以及点击番剧跳转的独立播放页。另有小说与漫画目录，使用独立书籍模型和 Bangumi 资料，支持分类搜索与逐行筛选；详情和阅读尚未实现。
+- 当前可运行客户端为 `apps/web`，已实现发现页公告与新番时间表、搜索、番剧目录、本地追番，以及点击番剧跳转的独立播放页。另有小说与漫画目录，使用独立书籍模型与 Hana 作品库资料，支持分类搜索与逐行筛选；详情和阅读尚未实现。
 - `apps/desktop` 与 `apps/mobile` 仅为工作区占位，未实现原生启动/打包。Web + Fastify 已实现来源搜索、分集、地址解析和播放；不得描述为已完成 Native 播放。
 - 播放页中来源、来源条目、线路、分集独立选择；换源清空旧分集和媒体。观看历史仅在实际播放后写入，不能把打开页面写成观看记录。
 - 默认接入稀饭动漫默认 HLS、Anime7、Omofun（天堂 / 精品 / 暴风 / 量子四条线路）；Omofun 搜索遇到网页验证时支持粘贴该站详情或播放链接，恢复已选条目不依赖关键词搜索。真实来源可能受地区或站点策略限制。TvTFun 的凭证解析尚未完成，默认关闭。详细边界见 `docs/design/playback.md`。
@@ -33,7 +33,7 @@
 | 目录                       | 职责与边界                                                                                                                      |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | `apps/web`                 | Web 启动、页面组合、应用导航、浏览器/播放器 adapter 与依赖注入                                                                  |
-| `apps/server`              | Fastify HTTP API、站点网络/HTML adapter、来源缓存及受限媒体网关，不渲染页面                                                     |
+| `apps/server`              | Fastify HTTP API、PostgreSQL 作品库、独立同步 worker、站点 adapter 及受限媒体网关，不渲染页面                                   |
 | `apps/desktop`             | 后续实现 Electron main/preload，复用 Web renderer                                                                               |
 | `apps/mobile`              | 后续实现 React Native 启动、Native 页面组合与 adapter                                                                           |
 | `packages/domain`          | 番剧领域模型、查询和组件数据契约、纯业务逻辑；不依赖 React、平台或服务实现                                                      |
@@ -58,7 +58,7 @@
 - 播放器、存储、网络、文件系统与系统能力必须通过明确的接口和 adapter 分层；不要把平台条件判断散落在业务代码中。
 - UI 对外提供一致的组件契约和设计语言，例如统一的 `@hanacg/ui` API。存在 DOM/Native 差异时，使用 `.web.tsx`、`.native.tsx` 或等价的平台入口实现。
 - Web 与 Electron 共用 Web 组件实现；iOS 与 Android 共用 React Native 组件实现。共享组件 API 不等于共享 renderer。
-- Web 方案保持 frontend-first。Fastify 仅承接来源网络、解析与媒体访问等必要能力；新增账号、数据库、队列等仍由实际需求驱动。
+- Web 方案保持 frontend-first。Fastify 承接自有目录 API、来源网络、解析与媒体访问；PostgreSQL 与 Drizzle 已落地，独立 worker 负责资料/来源目录同步。账号、独立队列仍由实际需求驱动。
 - Electron 特权能力必须通过 main/preload 的安全边界暴露，renderer 不得直接获得不受约束的 Node.js、文件系统或系统权限。
 
 - adapter 实现共享契约，由应用层传入业务层；共享核心不得直接访问 `window`、`document`、`localStorage`、Electron 或 React Native 模块。Web UI 和 Web 专属样式可以使用 DOM。
@@ -66,7 +66,7 @@
 
 ## 数据与来源边界
 
-- Bangumi 提供番剧元数据，不代表存在可播放的视频来源。元数据 ID、第三方来源条目 ID、分集 ID 与媒体 URL 应分别建模，不能混用。
+- 客户端目录从 Hana API 读取 PostgreSQL；Bangumi 作为服务端导入来源，不代表存在可播放视频。作品、标准分集、来源分集、放送安排与同步任务分别存储，细节见 `docs/design/catalog.md`。元数据 ID、第三方来源条目 ID、分集 ID 与媒体 URL 应分别建模，不能混用。
 - 外部 JSON 作为 `unknown` 进入边界，先校验再转换为领域模型；不将第三方原始字段结构扩散到页面。
 - 精选快照、在线结果和本地用户数据必须明确区分。离线时不得伪造每日放送、实时评分、播放来源或播放进度；现有回退规则见 `docs/design/discovery.md`。
 - 搜索和页面切换应取消过期请求，避免较早响应覆盖较新结果；请求需有超时、加载、失败、空结果及可操作的恢复反馈。
@@ -79,6 +79,13 @@
 - 同时支持亮色、暗色与跟随系统；通用颜色、间距、圆角优先复用或补充 design-tokens，保持 TypeScript token 与 CSS 变量一致。
 - Web/Electron 与 Native 保持一致的组件契约和设计语言，不强行复用 DOM 实现。
 - 保留窄屏适配、键盘操作、可见焦点、弹窗焦点管理、减少动态效果偏好，以及加载/错误/空状态；不要用没有实际行为的控件伪装已完成能力。
+
+### 番剧卡片规范
+
+- 所有番剧卡片复用 `AnimeCard`，保持封面、第一行标题、第二行播放状态的统一结构。
+- 第一行标题单行省略；只有实际溢出时，鼠标停留约 2 秒或键盘聚焦约 2 秒后展示完整标题浮层。未溢出不展示，不使用原生 `title`；移出、失焦、滚动或 Escape 关闭。
+- 第二行仅展示状态：`连载中 · 更新至第 N 话` 或 `已完结 · 全 N 话`，不展示年份/题材，不提供悬浮提示。总集数不可冒充更新进度；进度缺失显示 `连载中 · 进度待更新`，完结总数缺失显示 `已完结 · 总话数待补充`，其余显示 `未开播` 或 `状态待更新`。
+- 发现页仅包含全站公告栏和新番时间表，公告在前，不恢复精选横幅、推荐、高分模块。公告内容由服务端 `apps/server/src/content/announcements.json` 管理，无内容时显示“暂无公告”。
 
 ## 产品范围
 
@@ -110,15 +117,18 @@
 
 ## 开发与验证
 
-| 命令                | 用途                                                            |
-| ------------------- | --------------------------------------------------------------- |
-| `pnpm dev`          | 同时启动 Web（5173）与 Fastify（3001），Web `/api` 转发到服务端 |
-| `pnpm check`        | 根 TypeScript 检查、共享/服务端逻辑测试、Web 与服务端生产构建   |
-| `pnpm test:e2e`     | 浏览器交互测试；当前配置使用 Google Chrome                      |
-| `pnpm format:check` | 检查当前格式化范围；`pnpm format` 修正格式                      |
+| 命令                | 用途                                                                     |
+| ------------------- | ------------------------------------------------------------------------ |
+| `pnpm dev`          | 同时启动 Web（5173）、Fastify（3001）与同步 worker，需先配置数据库并迁移 |
+| `pnpm check`        | 根 TypeScript 检查、共享/服务端逻辑测试、Web 与服务端生产构建            |
+| `pnpm test:e2e`     | 浏览器交互测试；当前配置使用 Google Chrome                               |
+| `pnpm format:check` | 检查当前格式化范围；`pnpm format` 修正格式                               |
 
 - 按改动风险运行验证：共享逻辑/契约调整检查类型和相关单测；影响构建时运行构建；影响关键交互时运行相关 E2E。纯文档改动校对内容与差异即可。
 - UI 改动检查亮色、暗色和窄屏的实际呈现；交互变化覆盖对应的正常、错误或空状态。
 - 当前 E2E 使用受控的 Bangumi/播放 API 响应与浏览器生成的测试视频，不代表第三方在线服务可用。真实来源另用 `node scripts/verify-live-playback.mjs` 显式验证。报告时区分本地逻辑验证、浏览器交互验证与真实接口连通性。
 - 根检查当前覆盖 Web、Fastify 与共享包，不包括尚未实现的 Electron/React Native 构建；新增客户端后再补充对应验证范围。
 - 所有批量搜索、格式化、测试和生成任务应限定在 Hana 自身目录，遵守参考项目只读规则。
+
+- 数据层命令：`pnpm db:up`、`pnpm db:migrate`、`pnpm db:import <外部条目ID...>`、`pnpm test:db`；`pnpm dev:app` 不启动同步 worker。真实资料导入与真实视频播放验证必须分别报告。
+- 前台使用中性评分文案，保留资料说明入口与内部出处/许可；不能将导入评分标成本站用户评分。同步遵循限速、退避、幂等和人工字段保护，不在启动时全库重抓。

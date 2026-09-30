@@ -1,3 +1,4 @@
+import { animeFixture } from './catalog-fixtures';
 import { test, expect, type Page } from '@playwright/test';
 const title = '葬送的芙莉莲';
 const sources = [
@@ -92,15 +93,34 @@ async function mock(page: Page) {
   );
 }
 test.beforeEach(async ({ page }) => {
-  await page.goto('/');
+  await page.route('**/api/catalog/subjects?**', (r) =>
+    r.fulfill({
+      json: {
+        items: [
+          animeFixture({
+            id: 400602,
+            name_cn: title,
+            name: title,
+            date: '2023-09-29',
+            eps: 28,
+            rating: { score: 8.8 },
+            tags: [],
+          }),
+        ],
+      },
+    }),
+  );
+  await page.goto('/#/anime');
   await mock(page);
 });
 test('clicking anime navigates to player; each source and line owns its episodes', async ({
   page,
 }) => {
-  await page.getByRole('button', { name: '查看番剧', exact: true }).click();
+  await page.getByRole('button', { name: `播放${title}`, exact: true }).click();
   await expect(page).toHaveURL(/#\/watch\/400602/);
   await expect(page.getByRole('dialog')).toHaveCount(0);
+  // Wait for lazy page mount and its initial heading focus before testing skip navigation.
+  await expect(page.getByRole('heading', { name: title, exact: true })).toBeFocused();
   await page.getByRole('link', { name: '跳到主要内容' }).focus();
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/#\/watch\/400602/);
@@ -109,6 +129,9 @@ test('clicking anime navigates to player; each source and line owns its episodes
   await expect(page.locator('.episode-grid button')).toHaveCount(28);
   await page.getByRole('button', { name: '第01集', exact: true }).click();
   await expect(page.locator('video')).toBeVisible();
+  await expect
+    .poll(() => page.locator('video').evaluate((v: HTMLVideoElement) => v.readyState))
+    .toBeGreaterThanOrEqual(2);
   await page.locator('video').evaluate((v: HTMLVideoElement) => {
     v.muted = true;
     return v.play();

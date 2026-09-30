@@ -49,7 +49,12 @@ export interface SourceAdapter {
 }
 export interface PlaybackRepository {
   search(query: SourceQuery, signal?: AbortSignal): Promise<SourceSearchResult[]>;
-  episodes(sourceId: string, subjectId: string, signal?: AbortSignal): Promise<SourceLine[]>;
+  episodes(
+    sourceId: string,
+    subjectId: string,
+    signal?: AbortSignal,
+    animeId?: number,
+  ): Promise<SourceLine[]>;
   resolve(
     sourceId: string,
     subjectId: string,

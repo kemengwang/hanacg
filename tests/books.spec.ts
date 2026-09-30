@@ -1,3 +1,4 @@
+import { bookFixture } from './catalog-fixtures';
 import { test, expect } from '@playwright/test';
 
 const subjects = [
@@ -27,23 +28,24 @@ const subjects = [
   },
 ];
 test.beforeEach(async ({ page }) => {
-  await page.route('https://api.bgm.tv/**', async (route) => {
+  await page.route('**/api/catalog/**', async (route) => {
     const request = route.request();
-    const body = request.method() === 'POST' ? request.postDataJSON() : undefined;
-    const manga = request.url().includes('cat=1001') || body?.filter.meta_tags?.includes('漫画');
+    const manga = new URL(request.url()).searchParams.get('kind') === 'manga';
     await route.fulfill({
       json: {
-        data: subjects.map((item) =>
-          manga
-            ? {
-                ...item,
-                id: item.id + 100,
-                platform: '漫画',
-                name_cn: `${item.name_cn} 漫画`,
-                meta_tags: ['漫画', '已完结'],
-              }
-            : item,
-        ),
+        items: subjects
+          .map((item) =>
+            manga
+              ? {
+                  ...item,
+                  id: item.id + 100,
+                  platform: '漫画',
+                  name_cn: `${item.name_cn} 漫画`,
+                  meta_tags: ['漫画', '已完结'],
+                }
+              : item,
+          )
+          .map(bookFixture),
       },
     });
   });
@@ -80,13 +82,13 @@ test('book catalogs scope search, combine filters and restore URLs without openi
   await expect(page.getByText('没有找到符合条件的小说')).toBeVisible();
   await page.getByRole('button', { name: '重置筛选' }).click();
   await expect(page.locator('.book-card')).toHaveCount(2);
-  const request = page.waitForRequest((request) => request.method() === 'POST');
+  const request = page.waitForRequest(
+    (request) =>
+      request.url().includes('/api/catalog/subjects?') &&
+      new URL(request.url()).searchParams.get('q') === '来信',
+  );
   await page.getByRole('textbox', { name: '搜索小说', exact: true }).fill('来信');
-  expect((await request).postDataJSON().filter).toEqual({
-    type: [1],
-    meta_tags: ['小说'],
-    nsfw: false,
-  });
+  expect(new URL((await request).url()).searchParams.get('kind')).toBe('novel');
   await expect(page).toHaveURL(/#\/novel\?q=/);
   await page.reload();
   await expect(page.getByRole('textbox', { name: '搜索小说', exact: true })).toHaveValue('来信');
@@ -101,12 +103,12 @@ test('book catalogs scope search, combine filters and restore URLs without openi
 test('book failures recover, empty search clears and changing categories discards pending results', async ({
   page,
 }) => {
-  await page.route('https://api.bgm.tv/**', (route) => route.abort());
+  await page.route('**/api/catalog/**', (route) => route.abort());
   await page.goto('/#/manga');
   await expect(page.getByText('漫画资料暂时未能加载')).toBeVisible();
   await expect(page.locator('.anime-card, .book-card')).toHaveCount(0);
-  await page.unroute('https://api.bgm.tv/**');
-  await page.route('https://api.bgm.tv/**', (route) => route.fulfill({ json: { data: [] } }));
+  await page.unroute('**/api/catalog/**');
+  await page.route('**/api/catalog/**', (route) => route.fulfill({ json: { items: [] } }));
   await page.getByRole('button', { name: '重新加载' }).click();
   await expect(page.getByText('没有找到符合条件的漫画')).toBeVisible();
   await page.getByRole('textbox', { name: '搜索漫画', exact: true }).fill('不存在');
@@ -117,11 +119,17 @@ test('book failures recover, empty search clears and changing categories discard
   const pending = new Promise<void>((resolve) => {
     release = resolve;
   });
-  await page.route('https://api.bgm.tv/**', async (route) => {
-    if (route.request().url().includes('cat=1002')) await pending;
-    await route.fulfill({ json: { data: subjects } }).catch(() => {});
+  await page.route('**/api/catalog/**', async (route) => {
+    if (route.request().url().includes('kind=novel')) await pending;
+    await route
+      .fulfill({
+        json: {
+          items: route.request().url().includes('kind=novel') ? subjects.map(bookFixture) : [],
+        },
+      })
+      .catch(() => {});
   });
-  const novelRequest = page.waitForRequest('**/*cat=1002*');
+  const novelRequest = page.waitForRequest('**/*kind=novel*');
   await page.getByRole('button', { name: '小说', exact: true }).click();
   await novelRequest;
   await page.getByRole('button', { name: '漫画', exact: true }).click();

@@ -4,9 +4,16 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "tsx watch --env-file-if-exists=.env src/index.ts",
     "build": "tsup",
-    "start": "node dist/index.js"
+    "start": "node --env-file-if-exists=.env dist/index.js",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx --env-file-if-exists=.env src/db/migrate.ts",
+    "db:import": "tsx --env-file-if-exists=.env src/sync/cli.ts",
+    "worker": "tsx --env-file-if-exists=.env src/sync/worker.ts",
+    "start:worker": "node --env-file-if-exists=.env dist/sync/worker.js",
+    "test:db": "tsx --env-file-if-exists=.env src/db/verify.ts",
+    "db:status": "tsx --env-file-if-exists=.env src/sync/status.ts"
   },
   "dependencies": {
     "@fastify/rate-limit": "^11.2.0",
@@ -15,11 +22,15 @@
     "@hanacg/platform": "workspace:*",
     "@hanacg/source-engine": "workspace:*",
     "cheerio": "^1.2.0",
+    "drizzle-orm": "^0.45.3",
     "fastify": "^5.12.4",
     "ipaddr.js": "^2.5.0",
+    "pg": "^8.23.0",
     "undici": "^7.29.1"
   },
   "devDependencies": {
+    "@types/pg": "^8.23.1",
+    "drizzle-kit": "^0.31.11",
     "tsup": "^8.5.1",
     "tsx": "^4.23.13"
   }

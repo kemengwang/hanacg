@@ -14,7 +14,11 @@ const initialFilters: DiscoveryQuery = {
   year: 0,
   season: 0,
   minScore: 0,
+  region: 'all',
 };
+const newestYear = new Date().getFullYear() + 1;
+const years = Array.from({ length: 11 }, (_, i) => newestYear - i);
+const oldestYear = years[years.length - 1]!;
 const genres = [
   '全部',
   '奇幻',
@@ -51,15 +55,18 @@ export function CatalogPage({
   persistent: boolean;
 }) {
   const [refresh, setRefresh] = useState(0);
-  const feed = useDiscovery(repository, 'ranking', keyword, refresh);
   const [filters, setFilters] = useState(initialFilters);
+  const feed = useDiscovery(repository, 'ranking', keyword, refresh, filters.region);
   const update = <K extends keyof DiscoveryQuery>(key: K, value: DiscoveryQuery[K]) =>
     setFilters((current) => ({ ...current, [key]: value }));
-  const filtered = filterAnime(feed.items, { ...filters, keyword: feed.error ? keyword : '' });
-  const years = [...new Set([...feed.items.map((anime) => anime.year), filters.year || 0])]
-    .filter(Boolean)
-    .sort((a, b) => b - a);
+  const filtered = filterAnime(feed.items, {
+    ...filters,
+    year: filters.year === -1 ? 0 : filters.year,
+    yearBefore: filters.year === -1 ? oldestYear : undefined,
+    keyword: feed.error ? keyword : '',
+  });
   const hasFilters =
+    filters.region !== 'all' ||
     filters.genre !== '全部' ||
     filters.sort !== 'recommended' ||
     filters.year ||
@@ -90,6 +97,20 @@ export function CatalogPage({
             { value: 'year', label: '最新年份' },
           ]}
         />
+        <FilterRow<NonNullable<DiscoveryQuery['region']>>
+          label="地区"
+          value={filters.region || 'all'}
+          onChange={(value) => update('region', value)}
+          options={[
+            { value: 'all', label: '全部地区' },
+            { value: 'japan', label: '日漫' },
+            { value: 'china', label: '国漫' },
+            { value: 'western', label: '欧美' },
+            { value: 'korea', label: '韩漫' },
+            { value: 'other', label: '其他' },
+            { value: 'unknown', label: '未标注' },
+          ]}
+        />
         <FilterRow
           label="风格"
           value={filters.genre}
@@ -103,6 +124,7 @@ export function CatalogPage({
           options={[
             { value: 0, label: '全部年份' },
             ...years.map((value) => ({ value, label: `${value}` })),
+            { value: -1, label: `${oldestYear - 1} 及以前` },
           ]}
         />
         <FilterRow
@@ -133,8 +155,10 @@ export function CatalogPage({
         <h2>{keyword ? `“${keyword}”的搜索结果` : '发现好故事'}</h2>
         <span role="status">{feed.loading ? '正在加载…' : `${filtered.length} 部番剧`}</span>
         <p>
-          {feed.error ? '本地精选' : keyword ? 'Bangumi 搜索结果' : 'Bangumi 高分列表'} ·
-          筛选当前已加载条目{!feed.error && '（最多 24 部）'}
+          {feed.error
+            ? '本地精选 · 筛选当前条目'
+            : `${keyword ? '搜索结果' : '高分列表'} · 地区筛选全库，其他条件筛选当前条目`}
+          {!feed.error && '（最多 24 部）'}
         </p>
       </div>
       {!persistent && (
@@ -144,7 +168,7 @@ export function CatalogPage({
       )}
       {feed.error && (
         <div className="data-notice" role="status">
-          <span>暂时无法连接 Bangumi，以下为本地精选中的结果。</span>
+          <span>暂时无法连接资料库，以下为本地精选中的结果。</span>
           <button onClick={() => setRefresh((value) => value + 1)}>重新加载</button>
         </div>
       )}

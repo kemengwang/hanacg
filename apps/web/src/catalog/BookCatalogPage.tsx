@@ -151,7 +151,7 @@ export function BookCatalogPage({
         <span role="status">
           {feed.loading ? '正在加载…' : feed.error ? '加载失败' : `${filtered.length} 部${label}`}
         </span>
-        <p>Bangumi 书籍资料 · 筛选当前已加载条目（最多 24 部）</p>
+        <p>书籍资料库 · 筛选当前已加载条目（最多 24 部）</p>
       </div>
       {feed.loading ? (
         <div className="anime-grid" aria-label={`正在加载${label}`} role="status">
@@ -167,7 +167,7 @@ export function BookCatalogPage({
         <EmptyState
           icon={<BookOpen />}
           title={`${label}资料暂时未能加载`}
-          description="暂时无法连接 Bangumi，请检查网络后重试。"
+          description="暂时无法连接资料库，请检查网络后重试。"
           action={<Button onClick={() => setRefresh((value) => value + 1)}>重新加载</Button>}
         />
       ) : filtered.length ? (

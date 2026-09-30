@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { Anime, DiscoveryTab } from '@hanacg/domain';
+import type { Anime, DiscoveryTab, AnimeRegionFilter } from '@hanacg/domain';
 import { curatedAnime, parseAnime, record, type DiscoveryRepository } from '@hanacg/api-client';
 import type { KeyValueStorage } from '@hanacg/platform';
 
@@ -8,6 +8,7 @@ export function useDiscovery(
   tab: DiscoveryTab,
   keyword: string,
   refresh: number,
+  region: AnimeRegionFilter = 'all',
 ) {
   const [state, setState] = useState<{ items: readonly Anime[]; loading: boolean; error: boolean }>(
     { items: curatedAnime, loading: false, error: false },
@@ -22,10 +23,10 @@ export function useDiscovery(
     const timer = setTimeout(
       () => {
         const request = keyword.trim()
-          ? repository.search(keyword, controller.signal)
+          ? repository.search(keyword, controller.signal, region)
           : tab === 'calendar'
             ? repository.calendar(controller.signal)
-            : repository.ranking(controller.signal);
+            : repository.ranking(controller.signal, region);
         request
           .then((items) => {
             if (!controller.signal.aborted) setState({ items, loading: false, error: false });
@@ -45,7 +46,7 @@ export function useDiscovery(
       clearTimeout(timer);
       controller.abort();
     };
-  }, [repository, tab, keyword, refresh]);
+  }, [repository, tab, keyword, refresh, region]);
   return state;
 }
 
@@ -66,11 +67,20 @@ export function readSaved(storage: KeyValueStorage): Anime[] {
             type: 2,
             date: item.airDate,
             eps: item.episodes,
+            regions: item.regions,
             images: { large: item.cover },
             rating: { score: item.score },
             tags: Array.isArray(item.tags) ? item.tags.map((name) => ({ name })) : [],
           });
           if (!anime) return [];
+          if (['ongoing', 'completed', 'upcoming', 'unknown'].includes(String(item.releaseStatus)))
+            anime.releaseStatus = item.releaseStatus as Anime['releaseStatus'];
+          if (
+            typeof item.updatedEpisodes === 'number' &&
+            Number.isFinite(item.updatedEpisodes) &&
+            item.updatedEpisodes > 0
+          )
+            anime.updatedEpisodes = item.updatedEpisodes;
           if (typeof item.cover === 'string' && /^\/artwork\/[a-z-]+\.jpg$/.test(item.cover))
             anime.cover = item.cover;
           return [[anime.id, anime] as const];

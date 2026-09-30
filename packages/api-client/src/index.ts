@@ -1,8 +1,12 @@
-import type { Anime } from '@hanacg/domain';
+import { isAnimeRegion, type AnimeRegionFilter, type Anime } from '@hanacg/domain';
 import type { NetworkClient } from '@hanacg/platform';
 import curated from './curated.json';
 
-export const curatedAnime: readonly Anime[] = curated;
+export const curatedAnime: readonly Anime[] = curated.map((a) => ({
+  ...a,
+  regions: a.regions.filter(isAnimeRegion),
+  releaseStatus: 'completed',
+}));
 export const record = (value: unknown): Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -38,6 +42,7 @@ export function parseAnime(value: unknown, weekday?: number): Anime | null {
     airDate,
     episodes: Math.max(0, number(data.eps) || number(data.eps_count)),
     tags,
+    regions: Array.isArray(data.regions) ? data.regions.filter(isAnimeRegion) : [],
     ...(weekday ? { weekday } : {}),
   };
 }
@@ -50,8 +55,8 @@ function parseList(value: unknown): Anime[] {
 }
 export interface DiscoveryRepository {
   calendar(signal?: AbortSignal): Promise<Anime[]>;
-  ranking(signal?: AbortSignal): Promise<Anime[]>;
-  search(keyword: string, signal?: AbortSignal): Promise<Anime[]>;
+  ranking(signal?: AbortSignal, region?: AnimeRegionFilter): Promise<Anime[]>;
+  search(keyword: string, signal?: AbortSignal, region?: AnimeRegionFilter): Promise<Anime[]>;
 }
 export function createBangumiRepository(
   network: NetworkClient,
@@ -102,3 +107,5 @@ export {
 } from './playback';
 
 export { createBangumiBookRepository, parseBook, type BookRepository } from './books';
+
+export { createCatalogRepository, createCatalogBookRepository } from './catalog';

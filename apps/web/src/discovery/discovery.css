@@ -1,0 +1,52 @@
+.discovery-home {
+  padding-top: 8px;
+}
+.announcement-board {
+  padding: 20px 24px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  margin-bottom: 36px;
+}
+.announcement-board h1 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 12px;
+}
+.announcement-board h1 svg {
+  color: var(--accent);
+}
+.announcement-board p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.8;
+  margin: 0;
+  white-space: pre-wrap;
+}
+.announcement-board button {
+  margin-left: 8px;
+  color: var(--accent);
+}
+.announcement-list {
+  display: grid;
+  gap: 16px;
+}
+.announcement-list h2 {
+  font-size: 14px;
+  margin: 0 0 6px;
+}
+.schedule-section .weekdays {
+  margin-bottom: 24px;
+}
+@media (max-width: 760px) {
+  .announcement-board {
+    padding: 16px;
+    margin-bottom: 28px;
+  }
+  .schedule-section .section-heading span {
+    line-height: 1.7;
+  }
+}

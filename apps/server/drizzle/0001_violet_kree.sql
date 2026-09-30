@@ -1,0 +1,1 @@
+ALTER TABLE "subjects" ADD COLUMN "regions" text[] DEFAULT '{}' NOT NULL;

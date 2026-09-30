@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { filterAnime, type Anime } from './index';
+import { animeStatusLabel, filterAnime, type Anime } from './index';
 
 const anime = (id: number, title: string, score: number, tags: string[]): Anime => ({
   id,
@@ -53,4 +53,30 @@ describe('discovery filtering', () => {
     expect(filterAnime(catalog, { ...query, year: 0, season: 0, minScore: 0 })).toHaveLength(3);
     expect(filterAnime([{ ...catalog[0]!, airDate: '2023-00-01' }], query)).toEqual([]);
   });
+});
+
+it('filters multi-region co-productions and keeps unclassified entries separate', () => {
+  const entries: Anime[] = [
+    { ...items[0]!, regions: ['japan'] },
+    { ...items[1]!, regions: ['china', 'japan'] },
+    { ...items[2]!, regions: [] },
+  ];
+  const query = { keyword: '', genre: '全部', sort: 'recommended' as const };
+  expect(filterAnime(entries, { ...query, region: 'china' }).map((a) => a.id)).toEqual([2]);
+  expect(filterAnime(entries, { ...query, region: 'japan' }).map((a) => a.id)).toEqual([1, 2]);
+  expect(filterAnime(entries, { ...query, region: 'unknown' }).map((a) => a.id)).toEqual([3]);
+  expect(filterAnime(entries, { ...query, region: 'other' })).toEqual([]);
+});
+
+it('formats release status without mistaking episode totals for progress', () => {
+  const item = items[0]!;
+  expect(animeStatusLabel({ ...item, releaseStatus: 'ongoing' })).toBe('连载中 · 进度待更新');
+  expect(animeStatusLabel({ ...item, releaseStatus: 'ongoing', updatedEpisodes: 5 })).toBe(
+    '连载中 · 更新至第 5 话',
+  );
+  expect(animeStatusLabel({ ...item, releaseStatus: 'completed' })).toBe('已完结 · 全 12 话');
+  expect(animeStatusLabel({ ...item, releaseStatus: 'completed', episodes: 0 })).toBe(
+    '已完结 · 总话数待补充',
+  );
+  expect(animeStatusLabel(item)).toBe('状态待更新');
 });

@@ -1,3 +1,4 @@
+import { animeFixture } from './catalog-fixtures';
 import { test, expect } from '@playwright/test';
 
 const subject = {
@@ -12,30 +13,35 @@ const subject = {
   tags: [{ name: '奇幻' }],
 };
 test.beforeEach(async ({ page }) => {
+  await page.route('**/api/announcements', (r) => r.fulfill({ json: { items: [] } }));
   await page.route('**/api/playback/search?**', (route) =>
     route.fulfill({ json: { results: [] } }),
   );
-  await page.route('https://api.bgm.tv/**', (route) =>
-    route.fulfill({ json: { data: [subject] } }),
+  await page.route('**/api/catalog/**', (route) =>
+    route.fulfill({ json: { items: [animeFixture(subject)] } }),
+  );
+  await page.route('**/api/catalog/calendar', (r) =>
+    r.fulfill({
+      json: { items: [{ ...animeFixture(subject), weekday: 1, cover: '/artwork/frieren.jpg' }] },
+    }),
   );
 });
 
 test('discovery, filters, playback navigation, saved items and persistence', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: '今天，看点什么？' })).toBeVisible();
-  await expect(page.locator('.anime-card')).toHaveCount(6);
-  await page.getByRole('button', { name: '治愈', exact: true }).click();
-  await expect(page.locator('.anime-card')).toHaveCount(4);
-  await page.getByRole('button', { name: '全部', exact: true }).click();
-  await page.getByRole('button', { name: '查看番剧', exact: true }).click();
-  await expect(page).toHaveURL(/#\/watch\/400602/);
+  await expect(page.getByRole('heading', { name: '全站公告' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '新番时间表' })).toBeVisible();
+  await expect(page.locator('.hero, .feed-tabs')).toHaveCount(0);
+  await page.getByRole('button', { name: /周一/ }).click();
+  await page.getByRole('button', { name: '播放测试番剧', exact: true }).click();
+  await expect(page).toHaveURL(/#\/watch\/500/);
   await page.getByRole('button', { name: '加入追番', exact: true }).click();
   await page.getByRole('button', { name: '我的追番', exact: true }).click();
   await expect(page.locator('.anime-card')).toHaveCount(1);
   await page.reload();
   await page.getByRole('button', { name: '我的追番', exact: true }).click();
   await expect(page.locator('.anime-card')).toHaveCount(1);
-  await page.getByRole('button', { name: '取消追番：葬送的芙莉莲', exact: true }).click();
+  await page.getByRole('button', { name: '取消追番：测试番剧', exact: true }).click();
   await expect(page.getByText('为喜欢的故事留个位置')).toBeVisible();
 });
 
@@ -66,7 +72,7 @@ test('online search renders metadata, clears, and handles empty results', async 
     'page',
   );
   await expect(page.locator('.card-title')).toHaveText(['测试番剧']);
-  await page.route('https://api.bgm.tv/**', (route) => route.fulfill({ json: { data: [] } }));
+  await page.route('**/api/catalog/**', (route) => route.fulfill({ json: { items: [] } }));
   await input.fill('没有这部番');
   await expect(page.getByText('还没有找到这部番剧')).toBeVisible();
   await page.getByRole('button', { name: '清空搜索' }).click();
@@ -75,39 +81,39 @@ test('online search renders metadata, clears, and handles empty results', async 
 });
 
 test('calendar changes weekdays and never fabricates an offline schedule', async ({ page }) => {
-  await page.route('https://api.bgm.tv/calendar', (route) =>
-    route.fulfill({ json: [{ weekday: { id: 1 }, items: [subject] }] }),
+  await page.route('**/api/catalog/calendar', (route) =>
+    route.fulfill({ json: { items: [{ ...animeFixture(subject), weekday: 1 }] } }),
   );
   await page.goto('/');
-  await page.getByRole('tab', { name: '每日放送' }).click();
   await page.getByRole('button', { name: /周一/ }).click();
   await expect(page.locator('.card-title')).toHaveText(['测试番剧']);
   await page.getByRole('button', { name: /周二/ }).click();
   await expect(page.getByText('这一天暂时没有放送记录')).toBeVisible();
-  await page.route('https://api.bgm.tv/calendar', (route) => route.abort());
-  await page.getByRole('tab', { name: '为你推荐' }).click();
-  await page.getByRole('tab', { name: '每日放送' }).click();
-  await expect(page.getByText('暂时无法获取在线放送表，请稍后重试。')).toBeVisible();
+  await page.route('**/api/catalog/calendar', (route) => route.abort());
+  await page.reload();
+  await expect(page.getByText('新番时间表暂时无法加载')).toBeVisible();
   await expect(page.locator('.anime-card')).toHaveCount(0);
 });
 
 test('failed online search falls back to a clearly labeled local subset', async ({ page }) => {
-  await page.route('https://api.bgm.tv/**', (route) => route.abort());
+  await page.route('**/api/catalog/**', (route) => route.abort());
   await page.goto('/');
   await page.getByRole('textbox', { name: '搜索番剧', exact: true }).fill('芙莉莲');
-  await expect(page.getByText('暂时无法连接 Bangumi，以下为本地精选中的结果。')).toBeVisible();
+  await expect(page.getByText('暂时无法连接资料库，以下为本地精选中的结果。')).toBeVisible();
   await expect(page.locator('.anime-card')).toHaveCount(1);
 });
 
 test('late search responses do not replace newer results', async ({ page }) => {
   let completeFirst: (() => void) | undefined;
-  await page.route('https://api.bgm.tv/**', async (route) => {
-    const keyword = (route.request().postDataJSON() as { keyword: string }).keyword;
+  await page.route('**/api/catalog/**', async (route) => {
+    const keyword = new URL(route.request().url()).searchParams.get('q') ?? '';
     if (keyword === '旧搜索')
       await new Promise<void>((resolve) => {
         completeFirst = resolve;
       });
-    await route.fulfill({ json: { data: [{ ...subject, name_cn: keyword }] } }).catch(() => {});
+    await route
+      .fulfill({ json: { items: [animeFixture({ ...subject, name_cn: keyword })] } })
+      .catch(() => {});
   });
   await page.goto('/');
   const input = page.getByRole('textbox', { name: '搜索番剧', exact: true });
@@ -126,9 +132,9 @@ test('mobile drawer, dialog keyboard behavior and no horizontal overflow', async
   await page.getByRole('button', { name: '展开导航栏', exact: true }).last().click();
   await page.getByRole('button', { name: '我的追番', exact: true }).click();
   await expect(page.locator('.sidebar')).not.toBeVisible();
-  await page.getByRole('button', { name: '浏览精选番剧' }).click();
-  await page.getByRole('button', { name: '查看番剧', exact: true }).click();
-  await expect(page.getByRole('heading', { name: '葬送的芙莉莲', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: '浏览番剧' }).click();
+  await page.getByRole('button', { name: '播放测试番剧', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '测试番剧', exact: true })).toBeVisible();
   await page.getByRole('button', { name: '返回发现' }).click();
   await page.getByRole('button', { name: '展开导航栏', exact: true }).last().click();
   await page.getByRole('button', { name: '外观与偏好', exact: true }).click();
@@ -145,6 +151,8 @@ test('mobile drawer, dialog keyboard behavior and no horizontal overflow', async
 test('captures light and dark desktop, bundled artwork loads', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light' });
   await page.goto('/');
+  await page.getByRole('button', { name: /周一/ }).click();
+  await expect(page.locator('.anime-card img')).toHaveCount(1);
   await expect
     .poll(() =>
       page
@@ -163,10 +171,10 @@ test('captures light and dark desktop, bundled artwork loads', async ({ page }) 
 });
 
 test('catalog combines filters, resets, and opens playable details', async ({ page }) => {
-  await page.route('https://api.bgm.tv/**', (route) =>
+  await page.route('**/api/catalog/**', (route) =>
     route.fulfill({
       json: {
-        data: [
+        items: [
           subject,
           {
             ...subject,
@@ -177,7 +185,7 @@ test('catalog combines filters, resets, and opens playable details', async ({ pa
             tags: [{ name: '日常' }],
           },
           { ...subject, id: 502, name_cn: '夏日奇幻', rating: { score: 7 } },
-        ],
+        ].map(animeFixture),
       },
     }),
   );
@@ -207,8 +215,9 @@ test('global search works from the library, survives reload and supports browser
   page,
 }) => {
   await page.goto('/#/saved');
-  await page.keyboard.press('Control+k');
   const input = page.getByRole('textbox', { name: '搜索番剧', exact: true });
+  await expect(input).toBeVisible();
+  await page.keyboard.press('Control+k');
   await expect(input).toBeFocused();
   await input.fill('测试');
   await expect(page.locator('.card-title')).toHaveText(['测试番剧']);
@@ -223,7 +232,7 @@ test('global search works from the library, survives reload and supports browser
 test('catalog topbar stays visible, light and dark layouts fit desktop and mobile', async ({
   page,
 }) => {
-  await page.route('https://api.bgm.tv/**', (route) => route.abort());
+  await page.route('**/api/catalog/**', (route) => route.abort());
   await page.emulateMedia({ colorScheme: 'light' });
   await page.goto('/#/anime');
   await expect(page.locator('.anime-card')).toHaveCount(11);
@@ -258,4 +267,149 @@ test('catalog topbar stays visible, light and dark layouts fit desktop and mobil
   await page.screenshot({ path: 'test-results/catalog-mobile-dark.png' });
   await page.getByRole('button', { name: '切换到亮色模式' }).click();
   await page.screenshot({ path: 'test-results/catalog-mobile-light.png' });
+});
+
+test('legacy saved IDs migrate with a backup and remain saved on the new catalog', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      'hana:saved:v1',
+      JSON.stringify([
+        {
+          id: 500,
+          title: '测试番剧',
+          originalTitle: 'Test anime',
+          summary: '',
+          cover: '',
+          score: 8,
+          year: 2026,
+          airDate: '2026-07-01',
+          episodes: 12,
+          tags: ['奇幻'],
+        },
+      ]),
+    );
+  });
+  await page.route('**/api/catalog/resolve-ids', (r) =>
+    r.fulfill({ json: { ids: { 500: 1000000050 } } }),
+  );
+  await page.route('**/api/catalog/subjects?**', (r) =>
+    r.fulfill({ json: { items: [{ ...animeFixture(subject), id: 1000000050 }] } }),
+  );
+  await page.goto('/#/anime');
+  await expect(page.getByRole('button', { name: '取消追番：测试番剧' })).toBeVisible();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('hana:saved:v1')!)[0].id)).toBe(
+    1000000050,
+  );
+  expect(
+    await page.evaluate(
+      () => JSON.parse(localStorage.getItem('hana:saved:v1:before-catalog')!)[0].id,
+    ),
+  ).toBe(500);
+});
+
+test('region filters query the catalog, combine with style and reset across layouts', async ({
+  page,
+}) => {
+  const entries = [
+    { ...animeFixture(subject), id: 601, title: '日漫样本', regions: ['japan'] },
+    { ...animeFixture(subject), id: 602, title: '国漫样本', regions: ['china'], tags: ['日常'] },
+    { ...animeFixture(subject), id: 603, title: '欧美样本', regions: ['western'] },
+    { ...animeFixture(subject), id: 604, title: '未知地区', regions: [] },
+  ];
+  await page.route('**/api/catalog/subjects?**', (r) => {
+    const region = new URL(r.request().url()).searchParams.get('region');
+    return r.fulfill({
+      json: {
+        items: entries.filter(
+          (a) => !region || (region === 'unknown' ? !a.regions.length : a.regions.includes(region)),
+        ),
+      },
+    });
+  });
+  await page.goto('/#/anime');
+  const years = page.getByRole('group', { name: '年份', exact: true }).getByRole('button');
+  const yearLabels = await years.allTextContents();
+  const regions = page.getByRole('group', { name: '地区', exact: true });
+  await regions.getByRole('button', { name: '国漫', exact: true }).click();
+  await expect(page.locator('.card-title')).toHaveText(['国漫样本']);
+  await expect(years).toHaveText(yearLabels);
+  await page
+    .getByRole('group', { name: '风格' })
+    .getByRole('button', { name: '奇幻', exact: true })
+    .click();
+  await expect(page.getByText('还没有找到这部番剧')).toBeVisible();
+  await page.getByRole('button', { name: '重置筛选', exact: true }).click();
+  await expect(page.locator('.anime-card')).toHaveCount(4);
+  await regions.getByRole('button', { name: '日漫', exact: true }).click();
+  await expect(page.locator('.card-title')).toHaveText(['日漫样本']);
+  await page.screenshot({ path: 'test-results/regions-light.png' });
+  await page.getByRole('button', { name: '切换到暗色模式' }).click();
+  await page.screenshot({ path: 'test-results/regions-dark.png' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator('.topbar').getByRole('button', { name: '收起导航栏', exact: true }).click();
+  await regions.getByRole('button', { name: '未标注', exact: true }).click();
+  await expect(page.locator('.card-title')).toHaveText(['未知地区']);
+  expect(
+    await page.locator('.main-scroll').evaluate((el) => el.scrollWidth <= el.clientWidth),
+  ).toBe(true);
+  await page.screenshot({ path: 'test-results/regions-mobile.png' });
+});
+
+test('card status and delayed tooltip only for truncated titles', async ({ page }) => {
+  const longTitle = '这是一部长标题番剧用于验证超出隐藏时才展示完整标题的行为';
+  await page.route('**/api/catalog/subjects?**', (r) =>
+    r.fulfill({
+      json: {
+        items: [
+          { ...animeFixture(subject), title: longTitle, releaseStatus: 'completed' },
+          {
+            ...animeFixture(subject),
+            id: 501,
+            title: '短标题',
+            releaseStatus: 'ongoing',
+            updatedEpisodes: 5,
+          },
+          { ...animeFixture(subject), id: 502, title: '未知进度', releaseStatus: 'ongoing' },
+        ],
+      },
+    }),
+  );
+  await page.goto('/#/anime');
+  await expect(page.locator('.card-meta')).toHaveText([
+    '已完结 · 全 12 话',
+    '连载中 · 更新至第 5 话',
+    '连载中 · 进度待更新',
+  ]);
+  await page.clock.install();
+  await page.getByRole('button', { name: '短标题', exact: true }).hover();
+  await page.clock.runFor(2100);
+  await expect(page.getByRole('tooltip')).toHaveCount(0);
+  await page.getByRole('button', { name: longTitle, exact: true }).hover();
+  await page.clock.runFor(1900);
+  await expect(page.getByRole('tooltip')).toHaveCount(0);
+  await page.clock.runFor(200);
+  await expect(page.getByRole('tooltip')).toHaveText(longTitle);
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('tooltip')).toHaveCount(0);
+  await expect(page.locator('.card-meta[title], .card-title[title]')).toHaveCount(0);
+});
+
+test('announcement retry renders configured content on narrow discovery page', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.route('**/api/announcements', (r) => r.abort());
+  await page.goto('/');
+  await expect(page.getByText('公告暂时无法加载。')).toBeVisible();
+  await page.route('**/api/announcements', (r) =>
+    r.fulfill({ json: { items: [{ id: '1', title: '站内通知', content: '本周公告内容。' }] } }),
+  );
+  await page.getByRole('button', { name: '重试', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '站内通知' })).toBeVisible();
+  await page.getByRole('button', { name: /周一/ }).click();
+  await expect(page.locator('.anime-card')).toHaveCount(1);
+  expect(
+    await page.locator('.main-scroll').evaluate((el) => el.scrollWidth <= el.clientWidth),
+  ).toBe(true);
+  await page.screenshot({ path: 'test-results/discovery-mobile-content.png', fullPage: true });
 });

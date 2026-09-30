@@ -1,3 +1,5 @@
+import { animeStatusLabel } from '@hanacg/domain';
+import { TruncatedTitle } from './TruncatedTitle.web';
 import { useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import type { Anime, AnimeCardProps, BookCardProps } from '@hanacg/domain';
 
@@ -61,20 +63,8 @@ export function AnimeCard({ anime, saved, onOpen, onToggleSave }: AnimeCardProps
           </svg>
         </button>
       </div>
-      <button className="card-title" onClick={() => onOpen(anime)}>
-        {anime.title}
-      </button>
-      <p className="card-meta">
-        {anime.year || '年份待定'}
-        <span />
-        {anime.episodes ? `${anime.episodes} 话` : '话数待定'}
-        {anime.tags[0] && (
-          <>
-            <span />
-            {anime.tags[0]}
-          </>
-        )}
-      </p>
+      <TruncatedTitle title={anime.title} onClick={() => onOpen(anime)} />
+      <p className="card-meta">{animeStatusLabel(anime)}</p>
     </article>
   );
 }
